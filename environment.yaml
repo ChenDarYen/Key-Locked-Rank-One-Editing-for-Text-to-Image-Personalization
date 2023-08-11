@@ -1,4 +1,4 @@
-name: key_locked_roe
+name: perfusion
 channels:
   - pytorch
   - xformers

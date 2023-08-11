@@ -1,7 +1,7 @@
 model:
   embedding_learning_rate: 0.006
   target_output_learning_rate: 0.03
-  target: models.perfusion.Perfusion
+  target: perfusion.perfusion.Perfusion
   params:
     linear_start: 0.00085
     linear_end: 0.0120
@@ -20,7 +20,7 @@ model:
     ckpt_path: "./ckpt/v1-5-pruned-emaonly.ckpt"
 
     personalization_config:
-      target: models.embedding_manager.EmbeddingManager
+      target: perfusion.embedding_manager.EmbeddingManager
       params:
         placeholder_strings: [ "*" ]
         initializer_words: [ "teddy" ]
@@ -28,7 +28,7 @@ model:
         progressive_words: False
 
     unet_config:
-      target: models.roe_openaimodel.UNetModel
+      target: perfusion.roe_openaimodel.UNetModel
       params:
         image_size: 32
         in_channels: 4
@@ -77,7 +77,7 @@ data:
     num_workers: 10
     wrap: true
     train:
-      target: models.dataset.PersonalizedBase
+      target: perfusion.dataset.PersonalizedBase
       params:
         data_root: './training_data/teddy/'
         flip_p: 0.5  # 0. when asymmetric

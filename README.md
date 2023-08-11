@@ -31,7 +31,7 @@ Create and activate the conda environment:
 
 ```
 conda env create -f environment.yaml
-conda activate key_locked_roe
+conda activate perfusion
 ```
 
 ## Training

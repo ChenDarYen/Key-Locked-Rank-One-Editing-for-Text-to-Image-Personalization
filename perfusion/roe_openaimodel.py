@@ -15,7 +15,7 @@ from ldm.modules.diffusionmodules.util import (
     normalization,
     timestep_embedding,
 )
-from models.roe_attention import SpatialTransformer
+from perfusion.roe_attention import SpatialTransformer
 from ldm.util import exists
 
 

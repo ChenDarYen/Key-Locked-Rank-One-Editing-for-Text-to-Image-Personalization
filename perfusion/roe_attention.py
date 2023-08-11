@@ -7,7 +7,7 @@ from einops import rearrange, repeat
 from typing import Optional, Any
 
 from ldm.modules.diffusionmodules.util import checkpoint
-from models.roe import ROELinear
+from perfusion.roe import ROELinear
 
 try:
     import xformers
