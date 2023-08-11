@@ -1,0 +1,98 @@
+model:
+  embedding_learning_rate: 0.006
+  target_output_learning_rate: 0.03
+  target: models.perfusion.Perfusion
+  params:
+    linear_start: 0.00085
+    linear_end: 0.0120
+    num_timesteps_cond: 1
+    log_every_t: 200
+    timesteps: 1000
+    cond_stage_key: "caption"
+    image_size: 64
+    channels: 4
+    cond_stage_trainable: True
+    conditioning_key: crossattn
+    monitor: train/loss_simple_ema
+    scale_factor: 0.18215
+    use_ema: False
+
+    ckpt_path: "./ckpt/v1-5-pruned-emaonly.ckpt"
+
+    personalization_config:
+      target: models.embedding_manager.EmbeddingManager
+      params:
+        placeholder_strings: [ "*" ]
+        initializer_words: [ "cat" ]
+        num_vectors_per_token: 1
+        progressive_words: False
+
+    unet_config:
+      target: models.roe_openaimodel.UNetModel
+      params:
+        image_size: 32
+        in_channels: 4
+        model_channels: 320
+        out_channels: 4
+        num_res_blocks: 2
+        attention_resolutions: [4, 2, 1]
+        channel_mult: [1, 2, 4, 4]
+        use_checkpoint: True
+        num_heads: 8
+        use_spatial_transformer: True
+        transformer_depth: 1
+        context_dim: 768
+        legacy: False
+
+    first_stage_config:
+      target: ldm.models.autoencoder.AutoencoderKL
+      params:
+        embed_dim: 4
+        monitor: val/rec_loss
+        ddconfig:
+          double_z: true
+          z_channels: 4
+          resolution: 256
+          in_channels: 3
+          out_ch: 3
+          ch: 128
+          ch_mult:
+          - 1
+          - 2
+          - 4
+          - 4
+          num_res_blocks: 2
+          attn_resolutions: []
+          dropout: 0.0
+        lossconfig:
+          target: torch.nn.Identity
+
+    cond_stage_config:
+      target: ldm.modules.encoders.modules.FrozenCLIPEmbedder
+
+data:
+  target: main.DataModuleFromConfig
+  params:
+    batch_size: 4
+    num_workers: 10
+    wrap: true
+    train:
+      target: models.dataset.PersonalizedBase
+      params:
+        data_root: './training_data/cat/'
+        flip_p: 0.5  # 0. when asymmetric
+
+lightning:
+  callbacks:
+    image_logger:
+      target: main.ImageLogger
+      params:
+        frequency_base: 5
+        batch_frequency: 25
+  modelcheckpoint_step:
+    params:
+      every_n_train_steps: 100
+  trainer:
+    max_steps: 400
+    log_every_n_steps: 1
+    accumulate_grad_batches: 4

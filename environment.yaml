@@ -1,0 +1,21 @@
+name: key_locked_roe
+channels:
+  - pytorch
+  - xformers
+  - defaults
+dependencies:
+  - python=3.10
+  - pip
+  - cudatoolkit=11.7
+  - pytorch=2.0.0
+  - torchvision=0.15.0
+  - xformers=0.0.19
+  - pip:
+      - albumentations==1.3.1
+      - pytorch-lightning==1.6.0
+      - omegaconf==2.1.1
+      - einops==0.6.1
+      - transformers==4.31.0
+      - kornia==0.7.0
+      - open_clip_torch==2.20.0
+      - git+https://github.com/openai/CLIP.git
