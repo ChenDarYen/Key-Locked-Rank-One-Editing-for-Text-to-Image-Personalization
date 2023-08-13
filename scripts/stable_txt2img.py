@@ -155,6 +155,18 @@ def main():
         help="unconditional guidance scale: eps = eps(x, empty) + scale * (eps(x, cond) - eps(x, empty))",
     )
     parser.add_argument(
+        "--betta",
+        type=float,
+        default=0.7,
+        help="bias used in gated rank-1 update",
+    )
+    parser.add_argument(
+        "--tau",
+        type=float,
+        default=0.15,
+        help="temperature used in gated rank-1 update",
+    )
+    parser.add_argument(
         "--from-file",
         type=str,
         help="if specified, load prompts from this file",
@@ -201,6 +213,8 @@ def main():
     seed_everything(opt.seed)
 
     config = OmegaConf.load(f"{opt.config}")
+    config.model.params.betta = opt.betta
+    config.model.params.tau = opt.tau
     model = load_model_from_config(config, opt.ckpt, opt.personalized_ckpt)
 
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")

@@ -82,6 +82,8 @@ Personalized samples can be obtained by running the command
 python scripts/stable_txt2img.py --ddim_eta 0.0 \
                                  --ddim_steps 50  \
                                  --scale 6.0 \
+                                 --beta 0.7 \
+                                 --tau 0.15 \
                                  --n_samples 4 \
                                  --n_iter 1 \
                                  --personalization_ckpt ./ckpt/teddy.ckpt \
