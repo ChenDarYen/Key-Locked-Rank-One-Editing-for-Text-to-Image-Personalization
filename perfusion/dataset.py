@@ -17,10 +17,9 @@ PROMPT_TEMPLATE = {
     'image of a {}': 3,
     'image of the {}': 3,
     'A photograph of {}': 3,
-    'A {} shown in a photo,': 1,
+    'A {} shown in a photo': 1,
     'A photo of {}': 3,
 }
-PROMPT_TEMPLATE_KEYS = list(PROMPT_TEMPLATE.keys())
 
 
 class PersonalizedBase(Dataset):
@@ -33,7 +32,11 @@ class PersonalizedBase(Dataset):
                  set="train",
                  placeholder_token="*",
                  center_crop=False,
+                 prompt_template=None,
                  ):
+        self.prompt_template = prompt_template or PROMPT_TEMPLATE
+        self.prompt_template_keys = list(self.prompt_template.keys())
+
         self.data_root = data_root
         self.flip_p = flip_p
 
@@ -72,8 +75,8 @@ class PersonalizedBase(Dataset):
         if not mask.mode == 'L':
             mask = mask.convert('L')
 
-        text = random.choice(PROMPT_TEMPLATE_KEYS)
-        concept_i = PROMPT_TEMPLATE[text]
+        text = random.choice(self.prompt_template_keys)
+        concept_i = self.prompt_template[text]
         text = text.format(self.placeholder_token)
 
         example["caption"] = text
