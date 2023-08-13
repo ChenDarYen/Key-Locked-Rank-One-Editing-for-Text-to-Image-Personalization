@@ -1,4 +1,6 @@
 import os
+import sys
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import argparse
 
 import numpy as np
@@ -8,7 +10,7 @@ from tqdm import tqdm
 from PIL import Image
 
 from clipseg.models.clipseg import CLIPDensePredT
-from models.dataset import PROMPT_TEMPLATE
+from perfusion.dataset import PROMPT_TEMPLATE
 
 
 if __name__ == '__main__':
@@ -43,7 +45,7 @@ if __name__ == '__main__':
 
     with torch.no_grad():
         for img_p, save_p in tqdm(zip(image_paths, mask_save_paths)):
-            img = Image.open(img_p)
+            img = Image.open(img_p).convert('RGB')
             img = transform(img).unsqueeze(0).to(device)
             preds = model(img.repeat(len(prompts), 1, 1, 1), prompts)[0]
             preds = torch.sigmoid(preds)
