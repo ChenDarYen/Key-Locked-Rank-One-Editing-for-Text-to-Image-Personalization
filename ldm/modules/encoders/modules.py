@@ -128,6 +128,7 @@ class FrozenCLIPEmbedder(AbstractEncoder):
                 position_ids=None,
                 inputs_embeds=None,
                 embedding_manager=None,
+                apply_pos_emb=True,
         ) -> torch.Tensor:
 
             seq_length = input_ids.shape[-1] if input_ids is not None else inputs_embeds.shape[-2]
@@ -141,8 +142,10 @@ class FrozenCLIPEmbedder(AbstractEncoder):
             if embedding_manager is not None:
                 inputs_embeds = embedding_manager(input_ids, inputs_embeds)
 
-            position_embeddings = self.position_embedding(position_ids)
-            embeddings = inputs_embeds + position_embeddings
+            embeddings = inputs_embeds
+            if apply_pos_emb:
+                position_embeddings = self.position_embedding(position_ids)
+                embeddings = embeddings + position_embeddings
 
             return embeddings
 
