@@ -261,13 +261,12 @@ def main():
                     for prompts in tqdm(data, desc="data"):
                         uc = None
                         if opt.scale != 1.0:
-                            uc = dict(c_crossattn=model.get_learned_conditioning(batch_size * [""]),
-                                      target_input=model.target_input)
+                            uc = dict(c_crossattn=model.get_learned_conditioning(batch_size * [""]),)
                         if isinstance(prompts, tuple):
                             prompts = list(prompts)
                         prompts = [p.format(opt.placeholder) for p in prompts]
                         encoding = model.cond_stage_model.encode(prompts, embedding_manager=model.embedding_manager)
-                        c = dict(c_crossattn=encoding, target_input=model.target_input)
+                        c = dict(c_crossattn=encoding)
                         shape = [opt.C, opt.H // opt.f, opt.W // opt.f]
                         samples_ddim, _ = sampler.sample(S=opt.ddim_steps,
                                                          conditioning=c,
