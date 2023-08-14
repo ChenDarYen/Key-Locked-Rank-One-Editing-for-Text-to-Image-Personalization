@@ -46,4 +46,4 @@ class ROELinear(nn.Linear):
         W_em_orthogonal_term = F.linear(em_orthogonal_term, self.weight)
         h = W_em_orthogonal_term + sigmoid_term * self.target_output[None, :]
         
-        return h
+        return h.to(W_em_orthogonal_term.dtype)
