@@ -8,7 +8,7 @@ from pytorch_lightning.utilities.rank_zero import rank_zero_only
 
 from ldm.models.diffusion.ddpm import LatentDiffusion
 from ldm.util import log_txt_as_img, instantiate_from_config, default
-from perfusion.roe import ROELinear
+from perfusion.roe import ROELinear, roe_to_mc_roe
 
 
 def roe_state_dict(model: torch.nn.Module):
@@ -72,13 +72,10 @@ class Perfusion(LatentDiffusion):
 
     def init_from_personalization_ckpt(self, path):
         sd = torch.load(path, map_location="cpu")
-        sd_embedding = sd['embedding']
-        sd_target_intput_n_output = sd['target_output']
-
         self.C_inv.data = sd['C_inv']
         self.target_input.data = sd['target_input']
-        self.embedding_manager.load_state_dict(sd_embedding)
-        self.model.diffusion_model.load_state_dict(sd_target_intput_n_output, strict=False)
+        self.embedding_manager.load_state_dict(sd['embedding'])
+        self.model.diffusion_model.load_state_dict(sd['target_output'], strict=False)
 
     @rank_zero_only
     @torch.no_grad()
