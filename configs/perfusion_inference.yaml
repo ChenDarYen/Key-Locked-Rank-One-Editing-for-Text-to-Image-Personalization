@@ -35,7 +35,7 @@ model:
         num_res_blocks: 2
         attention_resolutions: [4, 2, 1]
         channel_mult: [1, 2, 4, 4]
-        use_checkpoint: True
+        use_checkpoint: False
         num_heads: 8
         use_spatial_transformer: True
         transformer_depth: 1

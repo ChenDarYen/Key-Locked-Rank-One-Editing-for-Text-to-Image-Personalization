@@ -113,7 +113,7 @@ class CrossAttention(nn.Module):
             nn.Dropout(dropout)
         )
 
-    def forward(self, x, context=None, mask=None, target_input=None, C_inv=None, betta=0.75, tau=0.1):
+    def forward(self, x, context=None, mask=None, target_input=None, C_inv=None, betta=0.75, tau=0.1, **kwargs):
         h = self.heads
 
         q = self.to_q(x)
@@ -121,8 +121,8 @@ class CrossAttention(nn.Module):
             k = self.to_k(x)
             v = self.to_v(x)
         else:
-            k = self.to_k(context, target_input=target_input, C_inv=C_inv, betta=betta, tau=tau)
-            v = self.to_v(context, target_input=target_input, C_inv=C_inv, betta=betta, tau=tau)
+            k = self.to_k(context, target_input=target_input, C_inv=C_inv, betta=betta, tau=tau, **kwargs)
+            v = self.to_v(context, target_input=target_input, C_inv=C_inv, betta=betta, tau=tau, **kwargs)
 
         q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> (b h) n d', h=h), (q, k, v))
 
@@ -172,14 +172,14 @@ class MemoryEfficientCrossAttention(nn.Module):
         self.to_out = nn.Sequential(nn.Linear(inner_dim, query_dim), nn.Dropout(dropout))
         self.attention_op: Optional[Any] = None
 
-    def forward(self, x, context=None, mask=None, target_input=None, C_inv=None, betta=0.75, tau=0.1):
+    def forward(self, x, context=None, mask=None, target_input=None, C_inv=None, betta=0.75, tau=0.1, **kwargs):
         q = self.to_q(x)
         if context is None:
             k = self.to_k(x)
             v = self.to_v(x)
         else:
-            k = self.to_k(context, target_input=target_input, C_inv=C_inv, betta=betta, tau=tau)
-            v = self.to_v(context, target_input=target_input, C_inv=C_inv, betta=betta, tau=tau)
+            k = self.to_k(context, target_input=target_input, C_inv=C_inv, betta=betta, tau=tau, **kwargs)
+            v = self.to_v(context, target_input=target_input, C_inv=C_inv, betta=betta, tau=tau, **kwargs)
 
         b, _, _ = q.shape
         q, k, v = map(
@@ -228,17 +228,19 @@ class BasicTransformerBlock(nn.Module):
         self.norm3 = nn.LayerNorm(dim)
         self.checkpoint = checkpoint
 
-    def forward(self, x, context=None, target_input=None, C_inv=None, betta=0.75, tau=0.1):
-        # return checkpoint(self._forward, (x, context, target_input, C_inv, betta, tau),
-        #                   self.parameters(), self.checkpoint)
-        return checkpoint(self._forward, (x, context, target_input, C_inv, betta, tau),
+    def forward(self, x, context=None, target_input=None, C_inv=None, betta=0.75, tau=0.1, **kwargs):
+        if self.checkpoint and self.training:
+            return checkpoint(self._forward, (x, context, target_input, C_inv, betta, tau),
                           self.parameters(), self.checkpoint)
+        else:
+            return self._forward(
+                x, context=context, target_input=target_input, C_inv=C_inv, betta=betta, tau=tau, **kwargs)
 
-    def _forward(self, x, context=None, target_input=None, C_inv=None, betta=0.75, tau=0.1):
+    def _forward(self, x, context=None, target_input=None, C_inv=None, betta=0.75, tau=0.1, **kwargs):
         x = self.attn1(self.norm1(x), context=context if self.disable_self_attn else None,
-                       target_input=target_input, C_inv=C_inv, betta=betta, tau=tau) + x
+                       target_input=target_input, C_inv=C_inv, betta=betta, tau=tau, **kwargs) + x
         x = self.attn2(self.norm2(x), context=context, target_input=target_input, C_inv=C_inv,
-                       betta=betta, tau=tau) + x
+                       betta=betta, tau=tau, **kwargs) + x
         x = self.ff(self.norm3(x)) + x
         return x
 
