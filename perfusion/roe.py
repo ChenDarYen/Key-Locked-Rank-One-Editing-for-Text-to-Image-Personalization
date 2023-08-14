@@ -46,7 +46,7 @@ class ROELinear(nn.Linear):
         W_em_orthogonal_term = F.linear(em_orthogonal_term, self.weight)
         h = W_em_orthogonal_term + sigmoid_term * self.target_output[None, :]
 
-        return h
+        return h.to(W_em_orthogonal_term.dtype)
 
 
 # Inference only
@@ -106,4 +106,3 @@ def roe_to_mc_roe(roe: ROELinear, n_concepts):
         in_features=roe.in_features, out_features=roe.out_features, length=roe.length,
     )
     return mc_roe
-
