@@ -90,6 +90,19 @@ python scripts/stable_txt2img.py --ddim_eta 0.0 \
                                  --prompt "photo of a {}"
 ```
 
+## Generation with multiple concepts
+```
+python scripts/stable_txt2img_multi_concepts.py --ddim_eta 0.0 \
+                                                --ddim_steps 50  \
+                                                --scale 6.0 \
+                                                --beta 0.7 \
+                                                --tau 0.15 \
+                                                --n_samples 4 \
+                                                --n_iter 1 \
+                                                --personalized_ckpts ./ckpt/teddy.ckpt,./ckpt/cat.ckpt \
+                                                --prompt "photo of a {1} and a {2}"
+```
+
 ## BibTeX
 If you find this repository useful, please cite origin papers using the following.
 
