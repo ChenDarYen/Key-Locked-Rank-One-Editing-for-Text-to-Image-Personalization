@@ -34,7 +34,7 @@ class ROELinear(nn.Linear):
         """
         Args:
             input: the encoding of prompt using the concept word. shape: B x N x D
-            concept_token_idx: the index of the concept word. shape: B
+            target_input: the target input.
             C_inv: the inverse of the uncentered covariance metric.
             betta: bias used in gated rank-1 update.
             tau: temperature used in gated rank-1 update.
@@ -43,8 +43,8 @@ class ROELinear(nn.Linear):
         target_input_energy = (tmp[None, :] @ target_input).squeeze()
         sim = (input @ tmp)[..., None]
         sigmoid_term = torch.sigmoid((sim / target_input_energy - betta) / tau)
-        W_em_orthogonal_term = (F.linear(input, self.weight) -
-                                (sim * (self.weight @ target_input) / target_input_energy))
+        em_orthogonal_term = input - sim * target_input / target_input_energy
+        W_em_orthogonal_term = F.linear(em_orthogonal_term, self.weight)
         h = W_em_orthogonal_term + sigmoid_term * self.target_output[None, :]
 
         if self.bias is not None:
