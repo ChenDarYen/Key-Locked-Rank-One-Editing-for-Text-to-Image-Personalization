@@ -141,6 +141,10 @@ class EmbeddingManager(nn.Module):
         self.string_to_token_dict = state_dict["string_to_token"]
         self.string_to_param_dict = state_dict["string_to_param"]
 
+    def update_state_dict(self, state_dict):
+        self.string_to_token_dict.update(state_dict["string_to_token"])
+        self.string_to_param_dict.update(state_dict["string_to_param"])
+
     def get_embedding_norms_squared(self):
         all_params = torch.cat(list(self.string_to_param_dict.values()), axis=0)  # num_placeholders x embedding_dim
         param_norm_squared = (all_params * all_params).sum(axis=-1)  # num_placeholders
