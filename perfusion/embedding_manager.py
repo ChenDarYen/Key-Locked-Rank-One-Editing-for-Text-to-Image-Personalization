@@ -30,7 +30,7 @@ def get_bert_token_for_string(tokenizer, string):
 
 
 def get_embedding_for_clip_token(embedder, token):
-    return embedder(token.unsqueeze(0))[0, 0]
+    return embedder(token.unsqueeze(0), apply_pos_emb=False)[0]
 
 
 class EmbeddingManager(nn.Module):
@@ -69,7 +69,6 @@ class EmbeddingManager(nn.Module):
             token_dim = 1280
 
         for idx, placeholder_string in enumerate(placeholder_strings):
-
             token = get_token_for_string(placeholder_string)
 
             if initializer_words and idx < len(initializer_words):
