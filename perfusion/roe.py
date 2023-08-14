@@ -12,12 +12,11 @@ class ROELinear(nn.Linear):
             lock: apply locking or not.
         """
         super().__init__(*args, **kwargs)
+        assert self.bias is None
         self.length = length
         self.lock = lock
 
         self.weight.requires_grad = False
-        if self.bias is not None:
-            self.bias.requires_grad = False
 
         self.target_output = nn.Parameter(
             torch.empty((self.length, self.weight.data.shape[0]), dtype=torch.float32), requires_grad=not lock)
@@ -46,7 +45,5 @@ class ROELinear(nn.Linear):
         em_orthogonal_term = input - sim * target_input / target_input_energy
         W_em_orthogonal_term = F.linear(em_orthogonal_term, self.weight)
         h = W_em_orthogonal_term + sigmoid_term * self.target_output[None, :]
-
-        if self.bias is not None:
-            h += self.bias
+        
         return h
