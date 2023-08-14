@@ -19,8 +19,7 @@ A Pytorch implementation of the paper [Key-Locked Rank One Editing for Text-to-I
 </p>
 
 ### Our
-Our results demonstrate a slight overfitting. 
-Using CLIP similarity to select a balanced weight is necessary. 
+Using CLIP similarity to automatically select a balanced weight is necessary. 
 We'll implement it in the near future.
 <p align="center">
 <img src=assets/our_samples_teddy.png />
@@ -74,7 +73,6 @@ You can find weights along with tensorboard in `./ckpt`.
 
 ## Pretrained Weight
 Pretrained weight of teddy* is in `./ckpt`.
-Currently, all weights are trained on a single 3080ti with 400 steps.
 
 ## Generation
 Personalized samples can be obtained by running the command
