@@ -79,7 +79,7 @@ class Perfusion(LatentDiffusion):
         if personalization_ckpt is not None:
             self.init_from_personalization_ckpt(personalization_ckpt)
 
-    def init_from_personalization_ckpt(self, path):
+    def init_from_personalized_ckpt(self, path):
         sd = torch.load(path, map_location="cpu")
         self.C_inv.data = sd['C_inv']
         self.target_input.data = sd['target_input']

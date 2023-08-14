@@ -39,7 +39,7 @@ def load_model_from_config(config, ckpt, personalized_ckpt, verbose=False):
         print("unexpected keys:")
         print(u)
 
-    model.init_from_personalization_ckpt(personalized_ckpt)
+    model.init_from_personalized_ckpt(personalized_ckpt)
 
     model.cuda()
     model.eval()
