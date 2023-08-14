@@ -58,6 +58,7 @@ class MultiConceptsROELinear(nn.Linear):
             n_concepts: number of concepts.
         """
         super().__init__(*args, **kwargs)
+        assert self.bias is None
         self.length = length
         self.target_outputs = nn.ParameterList([
             nn.Parameter(torch.empty((self.length, self.weight.data.shape[0]), dtype=torch.float32))
@@ -91,12 +92,9 @@ class MultiConceptsROELinear(nn.Linear):
             em_proj_term += u * (input @ C_inv @ u)[..., None]
         em_orthogonal_term = input - em_proj_term
         W_em_orthogonal_term = F.linear(em_orthogonal_term, self.weight)
-
         h = W_em_orthogonal_term + parallel_term
 
-        if self.bias is not None:
-            h += self.bias
-        return h
+        return h.to(W_em_orthogonal_term.dtype)
 
 
 # Only use when initialization, no weight copy

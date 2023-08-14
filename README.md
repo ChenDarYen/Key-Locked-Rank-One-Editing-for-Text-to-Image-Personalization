@@ -89,6 +89,7 @@ python scripts/stable_txt2img.py --ddim_eta 0.0 \
 ```
 
 ## Generation with multiple concepts
+Use {1}, {2}, ..., {n} to distinguish different concepts.
 ```
 python scripts/stable_txt2img_multi_concepts.py --ddim_eta 0.0 \
                                                 --ddim_steps 50  \
