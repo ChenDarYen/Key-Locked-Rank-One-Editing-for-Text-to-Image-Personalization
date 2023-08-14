@@ -8,7 +8,7 @@ from pytorch_lightning.utilities.rank_zero import rank_zero_only
 
 from ldm.models.diffusion.ddpm import LatentDiffusion
 from ldm.util import log_txt_as_img, instantiate_from_config, default
-from perfusion.roe import ROELinear, roe_to_mc_roe
+from perfusion.roe import ROELinear
 
 
 def roe_state_dict(model: torch.nn.Module):
