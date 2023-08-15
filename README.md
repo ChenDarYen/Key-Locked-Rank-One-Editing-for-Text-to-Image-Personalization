@@ -9,6 +9,7 @@ A Pytorch implementation of the paper [Key-Locked Rank One Editing for Text-to-I
 
 ### ⏳ To do
 - [x] Multiple concepts inference
+- [ ] Support SDXL-1.0
 - [ ] CLIP metrics
 - [ ] Evaluation
 
