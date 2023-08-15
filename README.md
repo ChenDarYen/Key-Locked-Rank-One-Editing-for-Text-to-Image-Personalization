@@ -8,7 +8,7 @@ A Pytorch implementation of the paper [Key-Locked Rank One Editing for Text-to-I
 </p>
 
 ### ⏳ To do
-- [ ] Multiple concepts inference
+- [x] Multiple concepts inference
 - [ ] CLIP metrics
 - [ ] Evaluation
 
@@ -101,6 +101,9 @@ python scripts/stable_txt2img_multi_concepts.py --ddim_eta 0.0 \
                                                 --personalized_ckpts ./ckpt/teddy.ckpt,./ckpt/cat.ckpt \
                                                 --prompt "photo of a {1} and a {2}"
 ```
+
+## Global Locking
+If you want tot apply global locking, add the argument `--global_locking` when execute generation scripts.
 
 ## BibTeX
 If you find this repository useful, please cite origin papers using the following.

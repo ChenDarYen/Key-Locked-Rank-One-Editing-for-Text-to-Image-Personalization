@@ -29,7 +29,7 @@ class ROELinear(nn.Linear):
         """
         self.target_output.data = F.linear(init_input, self.weight).mean(dim=0)
 
-    def forward(self, input, target_input, C_inv, betta=0.75, tau=0.1, **kwargs):
+    def forward(self, input, target_input, C_inv, betta=0.75, tau=0.1, input_super=None, **kwargs):
         """
         Args:
             input: the encoding of prompt using the concept word. shape: B x N x D
@@ -37,7 +37,12 @@ class ROELinear(nn.Linear):
             C_inv: the inverse of the uncentered covariance metric.
             betta: bias used in gated rank-1 update.
             tau: temperature used in gated rank-1 update.
+            input_super: the encoding of prompt using the superclass word.
         """
+        # global locking
+        if input_super is not None:
+            input = input_super
+
         tmp = (C_inv @ target_input)
         target_input_energy = (tmp[None, :] @ target_input).squeeze()
         sim = (input @ tmp)[..., None]
@@ -67,7 +72,8 @@ class MultiConceptsROELinear(nn.Linear):
         self.requires_grad_(False)
 
     @torch.no_grad()
-    def forward(self, input, target_inputs, target_inputs_basis, C_inv, betta=0.75, tau=0.1, **kwargs):
+    def forward(self, input, target_inputs, target_inputs_basis,
+                C_inv, betta=0.75, tau=0.1, input_super=None, **kwargs):
         """
         Args:
             input: the encoding of prompt using the concept word. shape: B x N x D
@@ -76,8 +82,13 @@ class MultiConceptsROELinear(nn.Linear):
             C_inv: the inverse of the uncentered covariance metric.
             betta: bias used in gated rank-1 update.
             tau: temperature used in gated rank-1 update.
+            input_super: the encoding of prompt using the superclass word.
         """
         assert len(target_inputs) == len(self.target_outputs)
+
+        # global locking
+        if input_super is not None:
+            input = input_super
 
         parallel_term = 0
         for i, target_input in enumerate(target_inputs):

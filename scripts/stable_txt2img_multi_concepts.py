@@ -57,13 +57,6 @@ def main():
         help="the prompt to render. Use {n} to distinguish different concepts."
     )
     parser.add_argument(
-        "--placeholder",
-        type=str,
-        nargs="?",
-        default="*",
-        help="the placeholder of the target concept"
-    )
-    parser.add_argument(
         "--outdir",
         type=str,
         nargs="?",
@@ -197,11 +190,16 @@ def main():
         choices=["full", "autocast"],
         default="autocast"
     )
-
     parser.add_argument(
         "--personalized_ckpts",
         type=str,
-        help="Paths to a pre-trained personalized checkpoint. With the form 'ckpt1,ckpt2,...'")
+        help="Paths to a pre-trained personalized checkpoint. With the form 'ckpt1,ckpt2,...'"
+    )
+    parser.add_argument(
+        "--global_locking",
+        action="store_true",
+        help="the superclass word for global locking. None for disable."
+    )
 
     opt = parser.parse_args()
 
@@ -237,8 +235,6 @@ def main():
     n_rows = opt.n_rows if opt.n_rows > 0 else batch_size
     if not opt.from_file:
         prompt = opt.prompt
-        for concept_i in range(n_concepts):
-            prompt = prompt.replace(f'{{{concept_i + 1}}}', opt.placeholder * (concept_i + 1))
         assert prompt is not None
         data = [batch_size * [prompt]]
 
@@ -247,6 +243,22 @@ def main():
         with open(opt.from_file, "r") as f:
             data = f.read().splitlines()
             data = list(chunk(data, batch_size))
+
+    # prompts with placeholder word
+    placeholders = list(model.embedding_manager.string_to_token_dict.keys())
+    superclasses = model.embedding_manager.initializer_words
+    data_concept = list()
+    data_superclass = list()
+    for i in range(len(data)):
+        data_concept.append(list())
+        data_superclass.append(list())
+        for j in range(len(data[i])):
+            prompt_concept, prompt_superclass = data[i][j], data[i][j]
+            for concept_i in range(n_concepts):
+                prompt_concept = prompt_concept.replace(f'{{{concept_i + 1}}}', placeholders[concept_i])
+                prompt_superclass = prompt_superclass.replace(f'{{{concept_i + 1}}}', superclasses[concept_i])
+            data_concept[i].append(prompt_concept)
+            data_superclass[i].append(prompt_superclass)
 
     sample_path = os.path.join(outpath, "samples")
     os.makedirs(sample_path, exist_ok=True)
@@ -264,14 +276,20 @@ def main():
                 tic = time.time()
                 all_samples = list()
                 for n in trange(opt.n_iter, desc="Sampling"):
-                    for prompts in tqdm(data, desc="data"):
+                    for data_i in tqdm(range(len(data_concept)), desc="data"):
+                        prompts = data_concept[data_i]
+                        prompts_superclass = data_superclass[data_i] if opt.global_locking else None
+
                         uc = None
                         if opt.scale != 1.0:
-                            uc = dict(c_crossattn=model.get_learned_conditioning(batch_size * [""]))
+                            encoding_uc = model.get_learned_conditioning(batch_size * [""])
+                            uc = dict(c_crossattn=encoding_uc,
+                                      c_super=encoding_uc if opt.global_locking else None)
                         if isinstance(prompts, tuple):
                             prompts = list(prompts)
                         encoding = model.cond_stage_model.encode(prompts, embedding_manager=model.embedding_manager)
-                        c = dict(c_crossattn=encoding)
+                        encoding_superclass = model.get_learned_conditioning(prompts_superclass) if opt.global_locking else None
+                        c = dict(c_crossattn=encoding, c_super=encoding_superclass)
                         shape = [opt.C, opt.H // opt.f, opt.W // opt.f]
                         samples_ddim, _ = sampler.sample(S=opt.ddim_steps,
                                                          conditioning=c,

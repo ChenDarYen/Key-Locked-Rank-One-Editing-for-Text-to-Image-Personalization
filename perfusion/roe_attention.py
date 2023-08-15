@@ -121,7 +121,9 @@ class CrossAttention(nn.Module):
             k = self.to_k(x)
             v = self.to_v(x)
         else:
-            k = self.to_k(context, target_input=target_input, C_inv=C_inv, betta=betta, tau=tau, **kwargs)
+            context_super = kwargs.pop('context_super', None)
+            k = self.to_k(context, target_input=target_input, C_inv=C_inv, betta=betta, tau=tau,
+                          input_super=context_super, **kwargs)
             v = self.to_v(context, target_input=target_input, C_inv=C_inv, betta=betta, tau=tau, **kwargs)
 
         q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> (b h) n d', h=h), (q, k, v))
@@ -178,7 +180,9 @@ class MemoryEfficientCrossAttention(nn.Module):
             k = self.to_k(x)
             v = self.to_v(x)
         else:
-            k = self.to_k(context, target_input=target_input, C_inv=C_inv, betta=betta, tau=tau, **kwargs)
+            context_super = kwargs.pop('context_super', None)
+            k = self.to_k(context, target_input=target_input, C_inv=C_inv, betta=betta, tau=tau,
+                          input_super=context_super, **kwargs)
             v = self.to_v(context, target_input=target_input, C_inv=C_inv, betta=betta, tau=tau, **kwargs)
 
         b, _, _ = q.shape

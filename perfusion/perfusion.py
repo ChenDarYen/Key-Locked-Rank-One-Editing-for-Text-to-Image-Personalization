@@ -184,6 +184,7 @@ class Perfusion(LatentDiffusion):
         eps = diffusion_model(
             x=x_noisy, timesteps=t, context=cond['c_crossattn'], target_input=self.target_input, C_inv=self.C_inv,
             betta=self.betta, tau=self.tau,
+            context_super=cond['c_super'] if 'c_super' in cond else None,  # for global locking
         )
         return eps
 
@@ -344,6 +345,7 @@ class MultiConceptsPerfusion(LatentDiffusion):
                     new_placeholder_str = placeholder_str * (i + 1)
                     new_token = get_clip_token_for_string(self.cond_stage_model.tokenizer, new_placeholder_str)
                     sd_embedding = {
+                        'initializer_words': sd_embedding['initializer_words'],
                         'string_to_token': {new_placeholder_str: new_token},
                         'string_to_param': {new_placeholder_str: sd_embedding['string_to_param'][placeholder_str]}
                     }
@@ -367,5 +369,6 @@ class MultiConceptsPerfusion(LatentDiffusion):
             x=x_noisy, timesteps=t, context=cond['c_crossattn'],
             target_inputs=self.target_inputs, target_inputs_basis=self.target_inputs_basis,
             C_inv=self.C_inv, betta=self.betta, tau=self.tau,
+            context_super=cond['c_super'] if 'c_super' in cond else None,  # for global locking
         )
         return eps

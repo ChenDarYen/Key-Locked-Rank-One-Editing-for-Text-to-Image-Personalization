@@ -134,13 +134,19 @@ class EmbeddingManager(nn.Module):
         return embedded_text
 
     def state_dict(self, *args, **kwargs):
-        return {"string_to_token": self.string_to_token_dict,  "string_to_param": self.string_to_param_dict}
+        return {
+            "initializer_words": self.initializer_words,
+            "string_to_token": self.string_to_token_dict,
+            "string_to_param": self.string_to_param_dict,
+        }
 
     def load_state_dict(self, state_dict, *args, **kwargs):
+        self.initializer_words = state_dict["initializer_words"]
         self.string_to_token_dict = state_dict["string_to_token"]
         self.string_to_param_dict = state_dict["string_to_param"]
 
     def update_state_dict(self, state_dict):
+        self.initializer_words.extend(state_dict["initializer_words"])
         self.string_to_token_dict.update(state_dict["string_to_token"])
         self.string_to_param_dict.update(state_dict["string_to_param"])
 
