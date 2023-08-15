@@ -93,7 +93,7 @@ python scripts/stable_txt2img.py --ddim_eta 0.0 \
 ```
 
 ## Generation with multiple concepts
-Use {1}, {2}, ..., {n} to distinguish different concepts.
+Use comma `,` to splits personalized checkpoints, and use `{1}, {2}, ..., {n}` to distinguish different concepts.
 ```
 python scripts/stable_txt2img_multi_concepts.py --ddim_eta 0.0 \
                                                 --ddim_steps 50  \
@@ -107,7 +107,7 @@ python scripts/stable_txt2img_multi_concepts.py --ddim_eta 0.0 \
 ```
 
 ## Global Locking
-If you want tot apply global locking, add the argument `--global_locking` when execute generation scripts.
+If you want to apply global locking, add the argument `--global_locking` when execute generation scripts.
 
 ## BibTeX
 If you find this repository useful, please cite origin papers using the following.
