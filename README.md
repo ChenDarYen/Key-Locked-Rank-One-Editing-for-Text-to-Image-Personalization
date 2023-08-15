@@ -16,6 +16,7 @@ A Pytorch implementation of the paper [Key-Locked Rank One Editing for Text-to-I
 ### Paper
 <p align="center">
 <img src=assets/paper_samples_teddy.png />
+<img src=assets/paper_samples_cat.png />
 </p>
 
 ### Our
@@ -23,6 +24,9 @@ Using CLIP similarity to automatically select a balanced weight is necessary.
 We'll implement it in the near future.
 <p align="center">
 <img src=assets/our_samples_teddy.png />
+<img src=assets/our_samples_cat.png />
+<img src=assets/our_samples_Hepburn.png />
+<img src=assets/our_samples_Hepburn_cat.png />
 </p>
 
 ## Environment
@@ -72,7 +76,7 @@ You can find weights along with tensorboard in `./ckpt`.
 
 
 ## Pretrained Weight
-Pretrained weight of teddy* is in `./ckpt`.
+Pretrained concepts' weights can be found in `./ckpt`.
 
 ## Generation
 Personalized samples can be obtained by running the command
