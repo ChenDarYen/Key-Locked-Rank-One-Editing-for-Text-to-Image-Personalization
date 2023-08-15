@@ -40,7 +40,8 @@ class ROELinear(nn.Linear):
             input_super: the encoding of prompt using the superclass word.
         """
         # global locking
-        input = input_super or input
+        if input_super is not None:
+            input = input_super
 
         tmp = (C_inv @ target_input)
         target_input_energy = (tmp[None, :] @ target_input).squeeze()
@@ -87,9 +88,7 @@ class MultiConceptsROELinear(nn.Linear):
 
         # global locking
         if input_super is not None:
-            print(input.shape, input_super.shape)
-            exit()
-        input = input_super or input
+            input = input_super
 
         parallel_term = 0
         for i, target_input in enumerate(target_inputs):

@@ -57,13 +57,6 @@ def main():
         help="the prompt to render"
     )
     parser.add_argument(
-        "--placeholder",
-        type=str,
-        nargs="?",
-        default="*",
-        help="the placeholder of the target concept"
-    )
-    parser.add_argument(
         "--outdir",
         type=str,
         nargs="?",
@@ -201,12 +194,13 @@ def main():
         "--personalized_ckpt",
         type=str,
         required=True,
-        help="Path to a pre-trained personalized checkpoint")
+        help="Path to a pre-trained personalized checkpoint"
+    )
     parser.add_argument(
-        "--super_class",
-        type=str,
-        default=None,
-        help="the superclass word for global locking. None for disable.")
+        "--global_locking",
+        action="store_true",
+        help="the superclass word for global locking. None for disable."
+    )
 
     opt = parser.parse_args()
 
@@ -248,10 +242,11 @@ def main():
             data = list(chunk(data, batch_size))
 
     # prompts with superclass word for global locking
-    c_superclass = None
-    if opt.super_class is not None:
-        data_superclass = [p.format(opt.super_class) for p in data]
-        c_superclass = model.get_learned_conditioning(data_superclass)
+    c_superclass_list = None
+    if opt.global_locking:
+        superclass = model.embedding_manager.initializer_words[0]
+        data_superclass = [[p.format(superclass) for p in data[i]] for i in range(len(data))]
+        c_superclass_list = [model.get_learned_conditioning(batch_superclass) for batch_superclass in data_superclass]
 
     sample_path = os.path.join(outpath, "samples")
     os.makedirs(sample_path, exist_ok=True)
@@ -262,6 +257,7 @@ def main():
     if opt.fixed_code:
         start_code = torch.randn([opt.n_samples, opt.C, opt.H // opt.f, opt.W // opt.f], device=device)
 
+    placeholder = list(model.embedding_manager.string_to_token_dict.keys())[0]
     precision_scope = autocast if opt.precision == "autocast" else nullcontext
     with torch.no_grad():
         with precision_scope("cuda"):
@@ -269,15 +265,16 @@ def main():
                 tic = time.time()
                 all_samples = list()
                 for n in trange(opt.n_iter, desc="Sampling"):
-                    for prompts in tqdm(data, desc="data"):
+                    for data_i, prompts in tqdm(enumerate(data), desc="data"):
                         uc = None
+                        c_superclass = c_superclass_list[data_i] if c_superclass_list is not None else None
                         if opt.scale != 1.0:
                             encoding_uc = model.get_learned_conditioning(batch_size * [""])
                             uc = dict(c_crossattn=encoding_uc,
                                       c_super=encoding_uc if c_superclass is not None else None)
                         if isinstance(prompts, tuple):
                             prompts = list(prompts)
-                        prompts = [p.format(opt.placeholder) for p in prompts]
+                        prompts = [p.format(placeholder) for p in prompts]
                         encoding = model.cond_stage_model.encode(prompts, embedding_manager=model.embedding_manager)
                         c = dict(c_crossattn=encoding, c_super=c_superclass)
                         shape = [opt.C, opt.H // opt.f, opt.W // opt.f]
