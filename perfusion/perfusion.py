@@ -184,6 +184,7 @@ class Perfusion(LatentDiffusion):
         eps = diffusion_model(
             x=x_noisy, timesteps=t, context=cond['c_crossattn'], target_input=self.target_input, C_inv=self.C_inv,
             betta=self.betta, tau=self.tau,
+            context_super=getattr(cond, 'c_super', None),  # for global locking
         )
         return eps
 

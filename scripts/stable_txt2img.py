@@ -197,11 +197,16 @@ def main():
         choices=["full", "autocast"],
         default="autocast"
     )
-
     parser.add_argument(
         "--personalized_ckpt",
         type=str,
+        required=True,
         help="Path to a pre-trained personalized checkpoint")
+    parser.add_argument(
+        "--super_class",
+        type=str,
+        default=None,
+        help="the superclass word for global locking. None for disable.")
 
     opt = parser.parse_args()
 
@@ -242,6 +247,12 @@ def main():
             data = f.read().splitlines()
             data = list(chunk(data, batch_size))
 
+    # prompts with superclass word for global locking
+    c_superclass = None
+    if opt.super_class is not None:
+        data_superclass = [p.format(opt.super_class) for p in data]
+        c_superclass = model.get_learned_conditioning(data_superclass)
+
     sample_path = os.path.join(outpath, "samples")
     os.makedirs(sample_path, exist_ok=True)
     base_count = len(os.listdir(sample_path))
@@ -261,12 +272,14 @@ def main():
                     for prompts in tqdm(data, desc="data"):
                         uc = None
                         if opt.scale != 1.0:
-                            uc = dict(c_crossattn=model.get_learned_conditioning(batch_size * [""]),)
+                            encoding_uc = model.get_learned_conditioning(batch_size * [""])
+                            uc = dict(c_crossattn=encoding_uc,
+                                      c_super=encoding_uc if c_superclass is not None else None)
                         if isinstance(prompts, tuple):
                             prompts = list(prompts)
                         prompts = [p.format(opt.placeholder) for p in prompts]
                         encoding = model.cond_stage_model.encode(prompts, embedding_manager=model.embedding_manager)
-                        c = dict(c_crossattn=encoding)
+                        c = dict(c_crossattn=encoding, c_super=c_superclass)
                         shape = [opt.C, opt.H // opt.f, opt.W // opt.f]
                         samples_ddim, _ = sampler.sample(S=opt.ddim_steps,
                                                          conditioning=c,
