@@ -16,6 +16,7 @@ A Pytorch implementation of the paper [Key-Locked Rank One Editing for Text-to-I
 
 
 ### News
+- Support advanced sampler from [Stable Diffusion](https://github.com/Stability-AI/generative-models), like EulerEDMSampler.
 - Now we support training and generating using SD V2.1 as the basement!
 
 ## Samples
@@ -123,6 +124,9 @@ python scripts/stable_txt2img_multi_concepts.py --ddim_eta 0.0 \
                                                 --personalized_ckpts ./ckpt/teddy.ckpt,./ckpt/cat.ckpt \
                                                 --prompt "photo of a {1} and a {2}"
 ```
+
+## Advanced Samplers
+Please check `scripts/stable_txt2img_advanced.py` and `scripts/stable_txt2img_multi_concepts_advanced.py`
 
 ## Global Locking
 If you want to apply global locking, add the argument `--global_locking` when execute generation scripts.
