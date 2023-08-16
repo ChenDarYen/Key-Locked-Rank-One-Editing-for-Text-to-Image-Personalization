@@ -125,11 +125,18 @@ python scripts/stable_txt2img_multi_concepts.py --ddim_eta 0.0 \
                                                 --prompt "photo of a {1} and a {2}"
 ```
 
-## Advanced Samplers
-Please check `scripts/stable_txt2img_advanced.py` and `scripts/stable_txt2img_multi_concepts_advanced.py`
-
 ## Global Locking
 If you want to apply global locking, add the argument `--global_locking` when execute generation scripts.
+
+
+## Advanced Samplers
+Please check `scripts/stable_txt2img_advanced.py` and `scripts/stable_txt2img_multi_concepts_advanced.py`.
+
+Following are results by using SD v2.1 and EulerEDMSampler.
+
+<p align="center">
+<img src=assets/our_samples_Hepburn_sd_v2-1_edm.png />
+</p>
 
 ## BibTeX
 If you find this repository useful, please cite origin papers using the following.
