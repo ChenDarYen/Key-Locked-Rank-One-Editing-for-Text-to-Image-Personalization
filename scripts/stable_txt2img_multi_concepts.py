@@ -16,35 +16,7 @@ from contextlib import contextmanager, nullcontext
 from ldm.util import instantiate_from_config
 from ldm.models.diffusion.ddim import DDIMSampler
 from ldm.models.diffusion.plms import PLMSSampler
-
-
-def chunk(it, size):
-    it = iter(it)
-    return iter(lambda: tuple(islice(it, size)), ())
-
-
-def load_model_from_config(config, ckpt, personalized_ckpt_list, verbose=False):
-    model = instantiate_from_config(config.model)
-
-    print(f"Loading model from {ckpt} and {personalized_ckpt_list}")
-
-    pl_sd = torch.load(ckpt, map_location="cpu")
-    if "global_step" in pl_sd:
-        print(f"Global Step: {pl_sd['global_step']}")
-    sd = pl_sd["state_dict"]
-    m, u = model.load_state_dict(sd, strict=False)
-    if len(m) > 0 and verbose:
-        print("missing keys:")
-        print(m)
-    if len(u) > 0 and verbose:
-        print("unexpected keys:")
-        print(u)
-
-    model.init_from_personalized_ckpt_list(personalized_ckpt_list)
-
-    model.cuda()
-    model.eval()
-    return model
+from scripts.helpers import chunk, load_model_from_config
 
 
 def main():
@@ -150,7 +122,7 @@ def main():
         help="unconditional guidance scale: eps = eps(x, empty) + scale * (eps(x, cond) - eps(x, empty))",
     )
     parser.add_argument(
-        "--betta",
+        "--beta",
         type=float,
         default=0.7,
         help="bias used in gated rank-1 update",
@@ -214,7 +186,7 @@ def main():
 
     config = OmegaConf.load(f"{opt.config}")
     config.model.target = 'perfusion.perfusion.MultiConceptsPerfusion'
-    config.model.params.betta = opt.betta
+    config.model.params.beta = opt.beta
     config.model.params.tau = opt.tau
     personalized_ckpt_list = opt.personalized_ckpts.split(',')
     n_concepts = len(personalized_ckpt_list)

@@ -29,13 +29,13 @@ class ROELinear(nn.Linear):
         """
         self.target_output.data = F.linear(init_input, self.weight).mean(dim=0)
 
-    def forward(self, input, target_input, C_inv, betta=0.75, tau=0.1, input_super=None, **kwargs):
+    def forward(self, input, target_input, C_inv, beta=0.75, tau=0.1, input_super=None, **kwargs):
         """
         Args:
             input: the encoding of prompt using the concept word. shape: B x N x D
             target_input: the target input.
             C_inv: the inverse of the uncentered covariance metric.
-            betta: bias used in gated rank-1 update.
+            beta: bias used in gated rank-1 update.
             tau: temperature used in gated rank-1 update.
             input_super: the encoding of prompt using the superclass word.
         """
@@ -46,7 +46,7 @@ class ROELinear(nn.Linear):
         tmp = (C_inv @ target_input)
         target_input_energy = (tmp[None, :] @ target_input).squeeze()
         sim = (input @ tmp)[..., None]
-        sigmoid_term = torch.sigmoid((sim / target_input_energy - betta) / tau)
+        sigmoid_term = torch.sigmoid((sim / target_input_energy - beta) / tau)
         em_orthogonal_term = input - sim * target_input / target_input_energy
         W_em_orthogonal_term = F.linear(em_orthogonal_term, self.weight)
         h = W_em_orthogonal_term + sigmoid_term * self.target_output[None, :]
@@ -73,14 +73,14 @@ class MultiConceptsROELinear(nn.Linear):
 
     @torch.no_grad()
     def forward(self, input, target_inputs, target_inputs_basis,
-                C_inv, betta=0.75, tau=0.1, input_super=None, **kwargs):
+                C_inv, beta=0.75, tau=0.1, input_super=None, **kwargs):
         """
         Args:
             input: the encoding of prompt using the concept word. shape: B x N x D
             target_inputs: the target inputs.
             target_inputs_basis: a basis of the spce spanned by target_inputs.
             C_inv: the inverse of the uncentered covariance metric.
-            betta: bias used in gated rank-1 update.
+            beta: bias used in gated rank-1 update.
             tau: temperature used in gated rank-1 update.
             input_super: the encoding of prompt using the superclass word.
         """
@@ -95,7 +95,7 @@ class MultiConceptsROELinear(nn.Linear):
             tmp = (C_inv @ target_input)
             target_input_energy = (tmp[None, :] @ target_input).squeeze()
             sim = (input @ tmp)[..., None]
-            sigmoid_term = torch.sigmoid((sim / target_input_energy - betta) / tau)
+            sigmoid_term = torch.sigmoid((sim / target_input_energy - beta) / tau)
             parallel_term += sigmoid_term * self.target_outputs[i][None, ...]
 
         em_proj_term = 0

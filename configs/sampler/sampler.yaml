@@ -1,0 +1,17 @@
+target: ldm.modules.diffusionmodules.sampling.EulerEDMSampler
+params:
+  num_steps: 50
+
+  discretization_config:
+    target: ldm.modules.diffusionmodules.discretizer.EDMDiscretization
+    params:
+      sigma_min: 0.0292
+      sigma_max: 14.6146
+      rho: 3.0
+
+  guider_config:
+    target: ldm.modules.diffusionmodules.guiders.VanillaCFG
+    params:
+      scale: 7.5
+      dyn_thresh_config:
+        target: ldm.modules.diffusionmodules.sampling_utils.NoDynamicThresholding

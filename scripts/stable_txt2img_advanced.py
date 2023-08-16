@@ -14,9 +14,7 @@ from torch import autocast
 from contextlib import contextmanager, nullcontext
 
 from ldm.util import instantiate_from_config
-from ldm.models.diffusion.ddim import DDIMSampler
-from ldm.models.diffusion.plms import PLMSSampler
-from scripts.helpers import chunk, load_model_from_config
+from scripts.helpers import chunk, load_model_from_config, sample
 
 
 def main():
@@ -47,15 +45,10 @@ def main():
         help="do not save individual samples. For speed measurements.",
     )
     parser.add_argument(
-        "--ddim_steps",
+        "--steps",
         type=int,
         default=50,
-        help="number of ddim sampling steps",
-    )
-    parser.add_argument(
-        "--plms",
-        action='store_true',
-        help="use plms sampling",
+        help="number of sampling steps",
     )
     parser.add_argument(
         "--laion400m",
@@ -66,12 +59,6 @@ def main():
         "--fixed_code",
         action='store_true',
         help="if enabled, uses the same starting code across samples ",
-    )
-    parser.add_argument(
-        "--ddim_eta",
-        type=float,
-        default=0.0,
-        help="ddim eta (eta=0.0 corresponds to deterministic sampling",
     )
     parser.add_argument(
         "--n_iter",
@@ -145,6 +132,18 @@ def main():
         help="path to config which constructs model",
     )
     parser.add_argument(
+        "--sampler_config",
+        type=str,
+        default="configs/sampler/sampler.yaml",
+        help="path to config which constructs sampler",
+    )
+    parser.add_argument(
+        "--denoiser_config",
+        type=str,
+        default="configs/denoiser/denoiser.yaml",
+        help="path to config which constructs sampler",
+    )
+    parser.add_argument(
         "--ckpt",
         type=str,
         default="./ckpt/v1-5-pruned-emaonly.ckpt",
@@ -193,10 +192,13 @@ def main():
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     model = model.to(device)
 
-    if opt.plms:
-        sampler = PLMSSampler(model)
-    else:
-        sampler = DDIMSampler(model)
+    sampler_config = OmegaConf.load(f"{opt.sampler_config}")
+    sampler_config.params.num_steps = opt.steps
+    sampler_config.params.guider_config.scale = opt.scale
+    sampler = instantiate_from_config(sampler_config)
+
+    denoiser_config = OmegaConf.load(f"{opt.denoiser_config}")
+    denoiser = instantiate_from_config(denoiser_config).to(device)
 
     os.makedirs(opt.outdir, exist_ok=True)
     outpath = opt.outdir
@@ -251,28 +253,20 @@ def main():
                         encoding = model.cond_stage_model.encode(prompts, embedding_manager=model.embedding_manager)
                         c = dict(c_crossattn=encoding, c_super=c_superclass)
                         shape = [opt.C, opt.H // opt.f, opt.W // opt.f]
-                        samples_ddim, _ = sampler.sample(S=opt.ddim_steps,
-                                                         conditioning=c,
-                                                         batch_size=opt.n_samples,
-                                                         shape=shape,
-                                                         verbose=False,
-                                                         unconditional_guidance_scale=opt.scale,
-                                                         unconditional_conditioning=uc,
-                                                         eta=opt.ddim_eta,
-                                                         x_T=start_code)
 
-                        x_samples_ddim = model.decode_first_stage(samples_ddim)
-                        x_samples_ddim = torch.clamp((x_samples_ddim + 1.0) / 2.0, min=0.0, max=1.0)
+                        z_samples = sample(model.apply_model, denoiser, sampler, c, uc, batch_size, shape, model.device)
+                        x_samples = model.decode_first_stage(z_samples)
+                        x_samples = torch.clamp((x_samples + 1.0) / 2.0, min=0.0, max=1.0)
 
                         if not opt.skip_save:
-                            for x_sample in x_samples_ddim:
+                            for x_sample in x_samples:
                                 x_sample = 255. * rearrange(x_sample.cpu().numpy(), 'c h w -> h w c')
                                 Image.fromarray(x_sample.astype(np.uint8)).save(
                                     os.path.join(sample_path, f"{base_count:05}.jpg"))
                                 base_count += 1
 
                         if not opt.skip_grid:
-                            all_samples.append(x_samples_ddim)
+                            all_samples.append(x_samples)
 
                 if not opt.skip_grid:
                     # additionally, save as grid

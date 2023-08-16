@@ -75,3 +75,4 @@ model:
       params:
         freeze: True
         layer: "penultimate"
+        version:

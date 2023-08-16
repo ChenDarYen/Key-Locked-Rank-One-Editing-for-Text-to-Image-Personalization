@@ -36,7 +36,7 @@ class Perfusion(LatentDiffusion):
             C_inv_path='./ckpt/C_inv.npy',
             personalization_ckpt=None,
             ema_p=0.99,
-            betta=0.75,
+            beta=0.75,
             tau=0.1,
             concept_token_idx_key='concept_token_idx',
             mask_key='mask',
@@ -45,7 +45,7 @@ class Perfusion(LatentDiffusion):
         Args:
             C_inv_path: path to the inverse of the uncentered covariance metric.
             ema_p: p for calculating exponential moving average on target input.
-            betta: bias used in gated rank-1 update.
+            beta: bias used in gated rank-1 update.
             tau: temperature used in gated rank-1 update.
         """
         ckpt_path = kwargs.pop('ckpt_path', None)
@@ -53,7 +53,7 @@ class Perfusion(LatentDiffusion):
         load_only_unet = kwargs.pop('load_only_unet', False)
         super().__init__(*args, **kwargs)
         self.ema_p = ema_p
-        self.betta = torch.tensor(betta)
+        self.beta = torch.tensor(beta)
         self.tau = torch.tensor(tau)
         self.concept_token_idx_key = concept_token_idx_key
         self.mask_key = mask_key
@@ -183,7 +183,7 @@ class Perfusion(LatentDiffusion):
         diffusion_model = self.model.diffusion_model
         eps = diffusion_model(
             x=x_noisy, timesteps=t, context=cond['c_crossattn'], target_input=self.target_input, C_inv=self.C_inv,
-            betta=self.betta, tau=self.tau,
+            beta=self.beta, tau=self.tau,
             context_super=cond['c_super'] if 'c_super' in cond else None,  # for global locking
         )
         return eps
@@ -213,7 +213,7 @@ class Perfusion(LatentDiffusion):
         if sample:
             samples, z_denoise_row = self.sample_log(
                 cond=c,
-                C_inv=self.C_inv, betta=self.betta, tau=self.tau,
+                C_inv=self.C_inv, beta=self.beta, tau=self.tau,
                 batch_size=N, ddim=use_ddim,
                 ddim_steps=ddim_steps, eta=ddim_eta)
             x_samples = self.decode_first_stage(samples)
@@ -225,7 +225,7 @@ class Perfusion(LatentDiffusion):
             uc['c_crossattn'] = self.get_unconditional_conditioning(N)
             samples_cfg, _ = self.sample_log(
                 cond=c,
-                C_inv=self.C_inv, betta=self.betta, tau=self.tau,
+                C_inv=self.C_inv, beta=self.beta, tau=self.tau,
                 batch_size=N, ddim=use_ddim,
                 ddim_steps=ddim_steps, eta=ddim_eta,
                 unconditional_guidance_scale=unconditional_guidance_scale,
@@ -273,7 +273,7 @@ class MultiConceptsPerfusion(LatentDiffusion):
             personalization_config,
             C_inv_path='./ckpt/C_inv.npy',
             personalization_ckpt_list=None,
-            betta=0.6,
+            beta=0.6,
             tau=0.15,
             n_concepts=1,
             *args, **kwargs):
@@ -281,14 +281,14 @@ class MultiConceptsPerfusion(LatentDiffusion):
         Args:
             C_inv_path: path to the inverse of the uncentered covariance metric.
             ema_p: p for calculating exponential moving average on target input.
-            betta: bias used in gated rank-1 update.
+            beta: bias used in gated rank-1 update.
             tau: temperature used in gated rank-1 update.
         """
         ckpt_path = kwargs.pop('ckpt_path', None)
         ignore_keys = kwargs.pop('ignore_keys', list())
         load_only_unet = kwargs.pop('load_only_unet', False)
         super().__init__(*args, **kwargs)
-        self.betta = torch.tensor(betta)
+        self.beta = torch.tensor(beta)
         self.tau = torch.tensor(tau)
         self.n_concepts = n_concepts
 
@@ -326,7 +326,7 @@ class MultiConceptsPerfusion(LatentDiffusion):
         Q = F.normalize(Q, dim=1)  # orthonormal basis
         self.target_inputs_basis.data = F.linear(Q, U_inv)
 
-    def init_from_personalized_ckpt_list(self, path_list):
+    def init_from_personalized_ckpt(self, path_list):
         assert len(path_list) == self.n_concepts
         for i, path in enumerate(path_list):
             sd = torch.load(path, map_location="cpu")
@@ -369,7 +369,7 @@ class MultiConceptsPerfusion(LatentDiffusion):
         eps = diffusion_model(
             x=x_noisy, timesteps=t, context=cond['c_crossattn'],
             target_inputs=self.target_inputs, target_inputs_basis=self.target_inputs_basis,
-            C_inv=self.C_inv, betta=self.betta, tau=self.tau,
+            C_inv=self.C_inv, beta=self.beta, tau=self.tau,
             context_super=cond['c_super'] if 'c_super' in cond else None,  # for global locking
         )
         return eps

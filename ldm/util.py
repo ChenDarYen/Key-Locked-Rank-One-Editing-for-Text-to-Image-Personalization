@@ -1,21 +1,68 @@
+import functools
 import importlib
-
-import torch
-from torch import optim
-import numpy as np
-
+import os
+from functools import partial
 from inspect import isfunction
+
+import fsspec
+import numpy as np
+import torch
 from PIL import Image, ImageDraw, ImageFont
+from safetensors.torch import load_file as load_safetensors
 
 
-def autocast(f):
+def disabled_train(self, mode=True):
+    """Overwrite model.train with this function to make sure train/eval mode
+    does not change anymore."""
+    return self
+
+
+def get_string_from_tuple(s):
+    try:
+        # Check if the string starts and ends with parentheses
+        if s[0] == "(" and s[-1] == ")":
+            # Convert the string to a tuple
+            t = eval(s)
+            # Check if the type of t is tuple
+            if type(t) == tuple:
+                return t[0]
+            else:
+                pass
+    except:
+        pass
+    return s
+
+
+def is_power_of_two(n):
+    """
+    chat.openai.com/chat
+    Return True if n is a power of 2, otherwise return False.
+
+    The function is_power_of_two takes an integer n as input and returns True if n is a power of 2, otherwise it returns False.
+    The function works by first checking if n is less than or equal to 0. If n is less than or equal to 0, it can't be a power of 2, so the function returns False.
+    If n is greater than 0, the function checks whether n is a power of 2 by using a bitwise AND operation between n and n-1. If n is a power of 2, then it will have only one bit set to 1 in its binary representation. When we subtract 1 from a power of 2, all the bits to the right of that bit become 1, and the bit itself becomes 0. So, when we perform a bitwise AND between n and n-1, we get 0 if n is a power of 2, and a non-zero value otherwise.
+    Thus, if the result of the bitwise AND operation is 0, then n is a power of 2 and the function returns True. Otherwise, the function returns False.
+
+    """
+    if n <= 0:
+        return False
+    return (n & (n - 1)) == 0
+
+
+def autocast(f, enabled=True):
     def do_autocast(*args, **kwargs):
-        with torch.cuda.amp.autocast(enabled=True,
-                                     dtype=torch.get_autocast_gpu_dtype(),
-                                     cache_enabled=torch.is_autocast_cache_enabled()):
+        with torch.cuda.amp.autocast(
+            enabled=enabled,
+            dtype=torch.get_autocast_gpu_dtype(),
+            cache_enabled=torch.is_autocast_cache_enabled(),
+        ):
             return f(*args, **kwargs)
 
     return do_autocast
+
+
+def load_partial_from_config(config):
+    return partial(get_obj_from_str(config["target"]), **config.get("params", dict()))
 
 
 def log_txt_as_img(wh, xc, size=10):
@@ -26,9 +73,15 @@ def log_txt_as_img(wh, xc, size=10):
     for bi in range(b):
         txt = Image.new("RGB", wh, color="white")
         draw = ImageDraw.Draw(txt)
-        font = ImageFont.truetype('font/DejaVuSans.ttf', size=size)
+        font = ImageFont.truetype("data/DejaVuSans.ttf", size=size)
         nc = int(40 * (wh[0] / 256))
-        lines = "\n".join(xc[bi][start:start + nc] for start in range(0, len(xc[bi]), nc))
+        if isinstance(xc[bi], list):
+            text_seq = xc[bi][0]
+        else:
+            text_seq = xc[bi]
+        lines = "\n".join(
+            text_seq[start : start + nc] for start in range(0, len(text_seq), nc)
+        )
 
         try:
             draw.text((0, 0), lines, fill="black", font=font)
@@ -42,6 +95,20 @@ def log_txt_as_img(wh, xc, size=10):
     return txts
 
 
+def partialclass(cls, *args, **kwargs):
+    class NewCls(cls):
+        __init__ = functools.partialmethod(cls.__init__, *args, **kwargs)
+
+    return NewCls
+
+
+def make_path_absolute(path):
+    fs, p = fsspec.core.url_to_fs(path)
+    if fs.protocol == "file":
+        return os.path.abspath(p)
+    return path
+
+
 def ismap(x):
     if not isinstance(x, torch.Tensor):
         return False
@@ -49,13 +116,32 @@ def ismap(x):
 
 
 def isimage(x):
-    if not isinstance(x,torch.Tensor):
+    if not isinstance(x, torch.Tensor):
         return False
     return (len(x.shape) == 4) and (x.shape[1] == 3 or x.shape[1] == 1)
 
 
+def isheatmap(x):
+    if not isinstance(x, torch.Tensor):
+        return False
+
+    return x.ndim == 2
+
+
+def isneighbors(x):
+    if not isinstance(x, torch.Tensor):
+        return False
+    return x.ndim == 5 and (x.shape[2] == 3 or x.shape[2] == 1)
+
+
 def exists(x):
     return x is not None
+
+
+def expand_dims_like(x, y):
+    while x.dim() != y.dim():
+        x = x.unsqueeze(-1)
+    return x
 
 
 def default(val, d):
@@ -75,7 +161,7 @@ def mean_flat(tensor):
 def count_params(model, verbose=False):
     total_params = sum(p.numel() for p in model.parameters())
     if verbose:
-        print(f"{model.__class__.__name__} has {total_params*1.e-6:.2f} M params.")
+        print(f"{model.__class__.__name__} has {total_params * 1.e-6:.2f} M params.")
     return total_params
 
 
@@ -89,119 +175,74 @@ def instantiate_from_config(config, **kwargs):
     return get_obj_from_str(config["target"])(**config.get("params", dict()), **kwargs)
 
 
-def get_obj_from_str(string, reload=False):
+def get_obj_from_str(string, reload=False, invalidate_cache=True):
     module, cls = string.rsplit(".", 1)
+    if invalidate_cache:
+        importlib.invalidate_caches()
     if reload:
         module_imp = importlib.import_module(module)
         importlib.reload(module_imp)
     return getattr(importlib.import_module(module, package=None), cls)
 
 
-class AdamWwithEMAandWings(optim.Optimizer):
-    # credit to https://gist.github.com/crowsonkb/65f7265353f403714fce3b2595e0b298
-    def __init__(self, params, lr=1.e-3, betas=(0.9, 0.999), eps=1.e-8,  # TODO: check hyperparameters before using
-                 weight_decay=1.e-2, amsgrad=False, ema_decay=0.9999,   # ema decay to match previous code
-                 ema_power=1., param_names=()):
-        """AdamW that saves EMA versions of the parameters."""
-        if not 0.0 <= lr:
-            raise ValueError("Invalid learning rate: {}".format(lr))
-        if not 0.0 <= eps:
-            raise ValueError("Invalid epsilon value: {}".format(eps))
-        if not 0.0 <= betas[0] < 1.0:
-            raise ValueError("Invalid beta parameter at index 0: {}".format(betas[0]))
-        if not 0.0 <= betas[1] < 1.0:
-            raise ValueError("Invalid beta parameter at index 1: {}".format(betas[1]))
-        if not 0.0 <= weight_decay:
-            raise ValueError("Invalid weight_decay value: {}".format(weight_decay))
-        if not 0.0 <= ema_decay <= 1.0:
-            raise ValueError("Invalid ema_decay value: {}".format(ema_decay))
-        defaults = dict(lr=lr, betas=betas, eps=eps,
-                        weight_decay=weight_decay, amsgrad=amsgrad, ema_decay=ema_decay,
-                        ema_power=ema_power, param_names=param_names)
-        super().__init__(params, defaults)
+def append_zero(x):
+    return torch.cat([x, x.new_zeros([1])])
 
-    def __setstate__(self, state):
-        super().__setstate__(state)
-        for group in self.param_groups:
-            group.setdefault('amsgrad', False)
 
-    @torch.no_grad()
-    def step(self, closure=None):
-        """Performs a single optimization step.
-        Args:
-            closure (callable, optional): A closure that reevaluates the model
-                and returns the loss.
-        """
-        loss = None
-        if closure is not None:
-            with torch.enable_grad():
-                loss = closure()
+def append_dims(x, target_dims):
+    """Appends dimensions to the end of a tensor until it has target_dims dimensions."""
+    dims_to_append = target_dims - x.ndim
+    if dims_to_append < 0:
+        raise ValueError(
+            f"input has {x.ndim} dims but target_dims is {target_dims}, which is less"
+        )
+    return x[(...,) + (None,) * dims_to_append]
 
-        for group in self.param_groups:
-            params_with_grad = []
-            grads = []
-            exp_avgs = []
-            exp_avg_sqs = []
-            ema_params_with_grad = []
-            state_sums = []
-            max_exp_avg_sqs = []
-            state_steps = []
-            amsgrad = group['amsgrad']
-            beta1, beta2 = group['betas']
-            ema_decay = group['ema_decay']
-            ema_power = group['ema_power']
 
-            for p in group['params']:
-                if p.grad is None:
-                    continue
-                params_with_grad.append(p)
-                if p.grad.is_sparse:
-                    raise RuntimeError('AdamW does not support sparse gradients')
-                grads.append(p.grad)
+def load_model_from_config(config, ckpt, verbose=True, freeze=True):
+    print(f"Loading model from {ckpt}")
+    if ckpt.endswith("ckpt"):
+        pl_sd = torch.load(ckpt, map_location="cpu")
+        if "global_step" in pl_sd:
+            print(f"Global Step: {pl_sd['global_step']}")
+        sd = pl_sd["state_dict"]
+    elif ckpt.endswith("safetensors"):
+        sd = load_safetensors(ckpt)
+    else:
+        raise NotImplementedError
 
-                state = self.state[p]
+    model = instantiate_from_config(config.model)
 
-                # State initialization
-                if len(state) == 0:
-                    state['step'] = 0
-                    # Exponential moving average of gradient values
-                    state['exp_avg'] = torch.zeros_like(p, memory_format=torch.preserve_format)
-                    # Exponential moving average of squared gradient values
-                    state['exp_avg_sq'] = torch.zeros_like(p, memory_format=torch.preserve_format)
-                    if amsgrad:
-                        # Maintains max of all exp. moving avg. of sq. grad. values
-                        state['max_exp_avg_sq'] = torch.zeros_like(p, memory_format=torch.preserve_format)
-                    # Exponential moving average of parameter values
-                    state['param_exp_avg'] = p.detach().float().clone()
+    m, u = model.load_state_dict(sd, strict=False)
 
-                exp_avgs.append(state['exp_avg'])
-                exp_avg_sqs.append(state['exp_avg_sq'])
-                ema_params_with_grad.append(state['param_exp_avg'])
+    if len(m) > 0 and verbose:
+        print("missing keys:")
+        print(m)
+    if len(u) > 0 and verbose:
+        print("unexpected keys:")
+        print(u)
 
-                if amsgrad:
-                    max_exp_avg_sqs.append(state['max_exp_avg_sq'])
+    if freeze:
+        for param in model.parameters():
+            param.requires_grad = False
 
-                # update the steps for each param group update
-                state['step'] += 1
-                # record the step after step update
-                state_steps.append(state['step'])
+    model.eval()
+    return model
 
-            optim._functional.adamw(params_with_grad,
-                    grads,
-                    exp_avgs,
-                    exp_avg_sqs,
-                    max_exp_avg_sqs,
-                    state_steps,
-                    amsgrad=amsgrad,
-                    beta1=beta1,
-                    beta2=beta2,
-                    lr=group['lr'],
-                    weight_decay=group['weight_decay'],
-                    eps=group['eps'],
-                    maximize=False)
 
-            cur_ema_decay = min(ema_decay, 1 - state['step'] ** -ema_power)
-            for param, ema_param in zip(params_with_grad, ema_params_with_grad):
-                ema_param.mul_(cur_ema_decay).add_(param.float(), alpha=1 - cur_ema_decay)
-
-        return loss
+def get_configs_path() -> str:
+    """
+    Get the `configs` directory.
+    For a working copy, this is the one in the root of the repository,
+    but for an installed copy, it's in the `sgm` package (see pyproject.toml).
+    """
+    this_dir = os.path.dirname(__file__)
+    candidates = (
+        os.path.join(this_dir, "configs"),
+        os.path.join(this_dir, "..", "configs"),
+    )
+    for candidate in candidates:
+        candidate = os.path.abspath(candidate)
+        if os.path.isdir(candidate):
+            return candidate
+    raise FileNotFoundError(f"Could not find SGM configs in {candidates}")

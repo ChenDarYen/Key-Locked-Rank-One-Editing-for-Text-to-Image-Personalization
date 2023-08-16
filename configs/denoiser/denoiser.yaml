@@ -1,0 +1,10 @@
+target: ldm.modules.diffusionmodules.denoiser.DiscreteDenoiser
+params:
+  num_idx: 1000
+
+  weighting_config:
+    target: ldm.modules.diffusionmodules.denoiser_weighting.EpsWeighting
+  scaling_config:
+    target: ldm.modules.diffusionmodules.denoiser_scaling.EpsScaling
+  discretization_config:
+    target: ldm.modules.diffusionmodules.discretizer.LegacyDDPMDiscretization
