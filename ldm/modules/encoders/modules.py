@@ -358,13 +358,17 @@ class FrozenOpenCLIPEmbedder(AbstractEncoder):
         for param in self.parameters():
             param.requires_grad = False
 
-    def forward(self, text):
+    def forward(self, text, **kwargs):
         tokens = open_clip.tokenize(text)
-        z = self.encode_with_transformer(tokens.to(self.device))
+        z = self.encode_with_transformer(tokens.to(self.device), **kwargs)
         return z
 
-    def encode_with_transformer(self, text):
+    def encode_with_transformer(self, text, embedding_manager=None):
         x = self.model.token_embedding(text)  # [batch_size, n_ctx, d_model]
+
+        if embedding_manager is not None:
+            x = embedding_manager(text, x)
+
         x = x + self.model.positional_embedding
         x = x.permute(1, 0, 2)  # NLD -> LND
         x = self.text_transformer_forward(x, attn_mask=self.model.attn_mask)
@@ -382,8 +386,8 @@ class FrozenOpenCLIPEmbedder(AbstractEncoder):
                 x = r(x, attn_mask=attn_mask)
         return x
 
-    def encode(self, text):
-        return self(text)
+    def encode(self, text, **kwargs):
+        return self(text, **kwargs)
 
 
 class FrozenOpenCLIPImageEmbedder(AbstractEncoder):

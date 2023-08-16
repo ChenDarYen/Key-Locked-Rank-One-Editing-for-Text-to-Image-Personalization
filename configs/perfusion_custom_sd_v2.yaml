@@ -1,6 +1,7 @@
 model:
   embedding_learning_rate: 0.006
   target_output_learning_rate: 0.03
+  base_learning_rate: 1.0e-4
   target: perfusion.perfusion.Perfusion
   params:
     linear_start: 0.00085
@@ -15,33 +16,36 @@ model:
     conditioning_key: crossattn
     monitor: train/loss_simple_ema
     scale_factor: 0.18215
-    use_ema: False
+    C_inv_path: './ckpt/C_inv_openclip.npy'
+    use_ema: False # we set this to false because this is an inference only config
 
-    ckpt_path: "./ckpt/v1-5-pruned-emaonly.ckpt"
+    ckpt_path: "./ckpt/v2-1_512-ema-pruned.ckpt"
 
     personalization_config:
       target: perfusion.embedding_manager.EmbeddingManager
       params:
         placeholder_strings: [ "*" ]
-        initializer_words: [ "pot" ]
+        initializer_words: [ "your_super_class"  ]
         num_vectors_per_token: 1
         progressive_words: False
 
     unet_config:
       target: perfusion.roe_openaimodel.UNetModel
       params:
-        image_size: 32
-        in_channels: 4
-        model_channels: 320
-        out_channels: 4
-        num_res_blocks: 2
-        attention_resolutions: [4, 2, 1]
-        channel_mult: [1, 2, 4, 4]
         use_checkpoint: True
-        num_heads: 8
+        use_fp16: True
+        image_size: 32 # unused
+        in_channels: 4
+        out_channels: 4
+        model_channels: 320
+        attention_resolutions: [ 4, 2, 1 ]
+        num_res_blocks: 2
+        channel_mult: [ 1, 2, 4, 4 ]
+        num_head_channels: 64 # need to fix for flash-attn
         use_spatial_transformer: True
+        use_linear_in_transformer: True
         transformer_depth: 1
-        context_dim: 768
+        context_dim: 1024
         legacy: False
 
     first_stage_config:
@@ -50,6 +54,7 @@ model:
         embed_dim: 4
         monitor: val/rec_loss
         ddconfig:
+          #attn_type: "vanilla-xformers"
           double_z: true
           z_channels: 4
           resolution: 256
@@ -68,7 +73,10 @@ model:
           target: torch.nn.Identity
 
     cond_stage_config:
-      target: ldm.modules.encoders.modules.FrozenCLIPEmbedder
+      target: ldm.modules.encoders.modules.FrozenOpenCLIPEmbedder
+      params:
+        freeze: True
+        layer: "penultimate"
 
 data:
   target: main.DataModuleFromConfig
@@ -79,8 +87,9 @@ data:
     train:
       target: perfusion.dataset.PersonalizedBase
       params:
-        data_root: './training_data/pot/'
-        flip_p: 0.  # 0. when asymmetric
+        data_root: '/path/to/your/images/'
+        flip_p: 0.5  # 0. when asymmetric
+        prompt_template:
 
 lightning:
   callbacks:
@@ -91,7 +100,7 @@ lightning:
         batch_frequency: 25
   modelcheckpoint_step:
     params:
-      every_n_train_steps: 100
+      every_n_train_steps: 50
   trainer:
     max_steps: 400
     log_every_n_steps: 1

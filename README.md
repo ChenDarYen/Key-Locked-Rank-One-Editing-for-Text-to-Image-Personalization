@@ -2,6 +2,7 @@
 
 A Pytorch implementation of the paper [Key-Locked Rank One Editing for Text-to-Image Personalization](https://arxiv.org/abs/2305.01644) ([project page](https://research.nvidia.com/labs/par/Perfusion/)).
 
+
 <p align="center">
 <img src=assets/paper_samples.png />
 <img src=assets/paper_diagram.png />
@@ -12,6 +13,10 @@ A Pytorch implementation of the paper [Key-Locked Rank One Editing for Text-to-I
 - [ ] Support SDXL-1.0
 - [ ] CLIP metrics
 - [ ] Evaluation
+
+
+### News
+- Now we support training and generating using SD V2.1 as the basement!
 
 ## Samples
 ### Paper
@@ -39,7 +44,7 @@ conda activate perfusion
 ```
 
 ## Training
-Download the [SD V1.5](https://huggingface.co/runwayml/stable-diffusion-v1-5/resolve/main/v1-5-pruned-emaonly.ckpt) to `./ckpt/`.
+Download the [SD V1.5](https://huggingface.co/runwayml/stable-diffusion-v1-5/resolve/main/v1-5-pruned-emaonly.ckpt) or [SD V2.1](https://huggingface.co/stabilityai/stable-diffusion-2-1-base/resolve/main/v2-1_512-ema-pruned.ckpt) to `./ckpt/`.
 
 Then run the commands:
 
@@ -47,6 +52,17 @@ Then run the commands:
 python main.py \
     --name teddy \
     --base ./configs/perfusion_teddy.yaml \
+    --basedir ./ckpt \
+    -t True \
+    --gpus 0,
+```
+
+or:
+
+```
+python main.py \
+    --name teddy \
+    --base ./configs/perfusion_teddy_sd_v2.yaml \
     --basedir ./ckpt \
     -t True \
     --gpus 0,
@@ -62,7 +78,7 @@ Then run:
 ```
 python ./data/soft_segment.py --image_dir /path/to/your/images/ --super_class your_own_super_class
 ```
-Modify the `initializer_words`, `data_root` and `flip_p` in `./configs/perfusion_custom.yaml`.
+Modify the `initializer_words`, `data_root`, `flip_p` in `./configs/perfusion_custom.yaml` or `./configs/perfusion_custom_sd_v2.yaml`.
 
 Finally, run:
 ```
@@ -92,6 +108,7 @@ python scripts/stable_txt2img.py --ddim_eta 0.0 \
                                  --personalized_ckpt ./ckpt/teddy.ckpt \
                                  --prompt "photo of a {}"
 ```
+Set `--config configs/perfusion_inference_sd_v2.yaml` and `--ckpt ./ckpt/v2-1_512-ema-pruned.ckpt` when using SD v2.1.
 
 ## Generation with multiple concepts
 Use comma `,` to splits personalized checkpoints, and use `{1}, {2}, ..., {n}` to distinguish different concepts.

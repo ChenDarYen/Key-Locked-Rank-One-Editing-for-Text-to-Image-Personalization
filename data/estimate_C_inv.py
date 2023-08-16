@@ -1,4 +1,5 @@
-import os
+import os, sys
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import argparse
 import math
 
@@ -6,7 +7,7 @@ import numpy as np
 import torch
 from tqdm import tqdm
 
-from ldm.modules.encoders.modules import FrozenCLIPEmbedder
+from ldm.modules.encoders.modules import FrozenCLIPEmbedder, FrozenOpenCLIPEmbedder
 
 
 def read_txt_file(file_path):
@@ -23,6 +24,7 @@ if __name__ == '__main__':
     parser.add_argument('--save_path', type=str, default='./ckpt/C_inv.npy')
     parser.add_argument('--batch_size', type=int, default=32)
     parser.add_argument('--n_captions', type=int, default=100_000)
+    parser.add_argument('--type', type=str, default='clip', choices=['clip', 'openclip'])
     args = parser.parse_args()
 
     device = 'cuda'
@@ -30,14 +32,21 @@ if __name__ == '__main__':
     bs = args.batch_size
     save_path = args.save_path
     n_captions = args.n_captions
+    encoder_type = args.type
 
     captions = read_txt_file(caption_path)[:n_captions]
     print(f'Total {len(captions)} captions.')
 
-    clip_encoder = FrozenCLIPEmbedder().to(device)
+    if encoder_type == 'clip':
+        clip_encoder = FrozenCLIPEmbedder()
+        enc_dim = 768
+    else:
+        clip_encoder = FrozenOpenCLIPEmbedder()
+        enc_dim = 1024
+    clip_encoder = clip_encoder.to(device)
 
     num_batches = math.ceil(len(captions) / bs)
-    cov_accumulator = np.zeros((768, 768))
+    cov_accumulator = np.zeros((enc_dim, enc_dim))
     with torch.no_grad():
         for i in tqdm(range(num_batches)):
             emb = clip_encoder(captions[i * bs:(i + 1) * bs])

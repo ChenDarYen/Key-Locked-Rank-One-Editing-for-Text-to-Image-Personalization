@@ -192,6 +192,7 @@ class Perfusion(LatentDiffusion):
     def get_unconditional_conditioning(self, N):
         return self.get_learned_conditioning([""] * N)
 
+    @torch.autocast('cuda')
     @torch.no_grad()
     def log_images(self, batch, N=4, sample=False, ddim_steps=50, ddim_eta=0.0,
                    unconditional_guidance_scale=6.0, **kwargs):

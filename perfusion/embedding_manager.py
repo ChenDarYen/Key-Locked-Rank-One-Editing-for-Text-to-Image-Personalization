@@ -1,8 +1,11 @@
 import torch
 from torch import nn
+import open_clip
 
 from transformers import CLIPTokenizer
 from functools import partial
+
+import ldm.modules.encoders.modules
 
 DEFAULT_PLACEHOLDER_TOKEN = ["*"]
 
@@ -17,6 +20,10 @@ def get_clip_token_for_string(tokenizer, string):
         tokens - 49407) == 2, f"String '{string}' maps to more than a single token. Please use another string"
 
     return tokens[0, 1]
+
+
+def get_open_clip_token_for_string(string):
+    return open_clip.tokenize(string)[0, 1]
 
 
 def get_bert_token_for_string(tokenizer, string):
@@ -57,13 +64,15 @@ class EmbeddingManager(nn.Module):
 
         self.max_vectors_per_token = num_vectors_per_token
 
-        if hasattr(embedder, 'tokenizer'):  # using Stable Diffusion's CLIP encoder
-            self.is_clip = True
+        if isinstance(embedder, ldm.modules.encoders.modules.FrozenCLIPEmbedder):
             get_token_for_string = partial(get_clip_token_for_string, embedder.tokenizer)
             get_embedding_for_tkn = partial(get_embedding_for_clip_token, embedder.transformer.text_model.embeddings)
             token_dim = 768
+        elif isinstance(embedder, ldm.modules.encoders.modules.FrozenOpenCLIPEmbedder):
+            get_token_for_string = get_open_clip_token_for_string
+            get_embedding_for_tkn = embedder.model.token_embedding
+            token_dim = 1024
         else:  # using LDM's BERT encoder
-            self.is_clip = False
             get_token_for_string = partial(get_bert_token_for_string, embedder.tknz_fn)
             get_embedding_for_tkn = embedder.transformer.token_emb
             token_dim = 1280
