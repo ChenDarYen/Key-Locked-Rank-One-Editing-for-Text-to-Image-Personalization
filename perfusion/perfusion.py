@@ -326,7 +326,7 @@ class MultiConceptsPerfusion(LatentDiffusion):
         Q = F.normalize(Q, dim=1)  # orthonormal basis
         self.target_inputs_basis.data = F.linear(Q, U_inv)
 
-    def init_from_personalization_ckpt_list(self, path_list):
+    def init_from_personalized_ckpt_list(self, path_list):
         assert len(path_list) == self.n_concepts
         for i, path in enumerate(path_list):
             sd = torch.load(path, map_location="cpu")
@@ -344,7 +344,7 @@ class MultiConceptsPerfusion(LatentDiffusion):
                 placeholder_str = list(sd_embedding['string_to_token'].keys())[0]
                 if placeholder_str in self.embedding_manager.string_to_token_dict:
                     new_placeholder_str = placeholder_str * (i + 1)
-                    new_token = get_clip_token_for_string(self.cond_stage_model.tokenizer, new_placeholder_str)
+                    new_token = self.embedding_manager.get_token_for_string(new_placeholder_str)
                     sd_embedding = {
                         'initializer_words': sd_embedding['initializer_words'],
                         'string_to_token': {new_placeholder_str: new_token},

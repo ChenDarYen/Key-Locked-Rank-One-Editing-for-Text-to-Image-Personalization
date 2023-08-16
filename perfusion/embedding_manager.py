@@ -76,6 +76,9 @@ class EmbeddingManager(nn.Module):
             get_token_for_string = partial(get_bert_token_for_string, embedder.tknz_fn)
             get_embedding_for_tkn = embedder.transformer.token_emb
             token_dim = 1280
+        self.get_token_for_string = get_token_for_string
+        self.get_embedding_for_tkn = get_embedding_for_tkn
+        self.token_dim = token_dim
 
         for idx, placeholder_string in enumerate(placeholder_strings):
             token = get_token_for_string(placeholder_string)
