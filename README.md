@@ -121,7 +121,7 @@ When generating with multiple concepts, use commas to separate checkpoints like 
 and use `{1}` and `{2}` to distinguish different concepts in the prompt as `--prompt "photo of a {1} and {2}"`.
 
 ### Advanced Sampler
-If you want to use advanced samplers beside DDIM, use the label `--advanced_sampler`. 
+If you want to use advanced samplers other than DDIM, use the label `--advanced_sampler`.
 The default advanced sampler is the EulerEDMSampler. 
 You can modify `./configs/sampler/sampler.yaml` and `./configs/denoiser/denoiser.yaml` depend on you preference.
 
