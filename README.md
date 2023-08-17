@@ -96,44 +96,36 @@ You can find weights along with tensorboard in `./ckpt`.
 ## Pretrained Weight
 Pretrained concepts' weights can be found in `./ckpt`.
 
-## Generation
+## Generating
 Personalized samples can be obtained by running the command
 ```
-python scripts/stable_txt2img.py --ddim_eta 0.0 \
-                                 --ddim_steps 50  \
-                                 --scale 6.0 \
-                                 --beta 0.7 \
-                                 --tau 0.15 \
-                                 --n_samples 4 \
-                                 `--n_iter 1` \
-                                 --personalized_ckpt ./ckpt/teddy.ckpt \
-                                 --prompt "photo of a {}"
+python scripts/perfusion_txt2img.py --ddim_eta 0.0 \
+                                    --steps 50  \
+                                    --scale 6.0 \
+                                    --beta 0.7 \
+                                    --tau 0.15 \
+                                    --n_samples 4 \
+                                    --n_iter 1 \
+                                    --personalized_ckpt ./ckpt/teddy.ckpt \
+                                    --prompt "photo of a {}"
 ```
+
+### Global Locking
+Global locking will be applied with the label `--global_locking`.
+
+### Stable Diffusion V2
 Set `--config configs/perfusion_inference_sd_v2.yaml` and `--ckpt ./ckpt/v2-1_512-ema-pruned.ckpt` when using SD v2.1.
 
-## Generation with multiple concepts
-Use comma `,` to splits personalized checkpoints, and use `{1}, {2}, ..., {n}` to distinguish different concepts.
-```
-python scripts/stable_txt2img_multi_concepts.py --ddim_eta 0.0 \
-                                                --ddim_steps 50  \
-                                                --scale 6.0 \
-                                                --beta 0.7 \
-                                                --tau 0.15 \
-                                                --n_samples 4 \
-                                                --n_iter 1 \
-                                                --personalized_ckpts ./ckpt/teddy.ckpt,./ckpt/cat.ckpt \
-                                                --prompt "photo of a {1} and a {2}"
-```
+### Multiple Concepts Generating
+When generating with multiple concepts, use commas to separate checkpoints like  `--personalized_ckpt /path/to/personalized/ckpt1,/path/to/personalized/ckpt2`, 
+and use `{1}` and `{2}` to distinguish different concepts in the prompt as `--prompt "photo of a {1} and {2}"`.
 
-## Global Locking
-If you want to apply global locking, add the argument `--global_locking` when execute generation scripts.
+### Advanced Sampler
+If you want to use advanced samplers beside DDIM, use the label `--advanced_sampler`. 
+The default advanced sampler is the EulerEDMSampler. 
+You can modify `./configs/sampler/sampler.yaml` and `./configs/denoiser/denoiser.yaml` depend on you preference.
 
-
-## Advanced Samplers
-Please check `scripts/stable_txt2img_advanced.py` and `scripts/stable_txt2img_multi_concepts_advanced.py`.
-
-Following are results by using SD v2.1 and EulerEDMSampler.
-
+Following are results by utilizing SD v2.1 and EulerEDMSampler.
 <p align="center">
 <img src=assets/our_samples_Hepburn_sd_v2-1_edm.png />
 </p>

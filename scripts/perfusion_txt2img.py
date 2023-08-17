@@ -14,7 +14,10 @@ from torch import autocast
 from contextlib import contextmanager, nullcontext
 
 from ldm.util import instantiate_from_config
-from scripts.helpers import chunk, load_model_from_config, sample
+from ldm.models.diffusion.ddim import DDIMSampler
+from ldm.models.diffusion.plms import PLMSSampler
+from scripts.helpers import chunk, load_model_from_config
+from scripts.helpers import sample as advanced_sample
 
 
 def main():
@@ -24,8 +27,8 @@ def main():
         "--prompt",
         type=str,
         nargs="?",
-        default="a photo of a {}",
-        help="the prompt to render"
+        default="a photo of the {1} and {2}",
+        help="the prompt to render. Use {n} to distinguish different concepts."
     )
     parser.add_argument(
         "--outdir",
@@ -51,6 +54,11 @@ def main():
         help="number of sampling steps",
     )
     parser.add_argument(
+        "--plms",
+        action='store_true',
+        help="use plms sampling",
+    )
+    parser.add_argument(
         "--laion400m",
         action='store_true',
         help="uses the LAION400M model",
@@ -59,6 +67,12 @@ def main():
         "--fixed_code",
         action='store_true',
         help="if enabled, uses the same starting code across samples ",
+    )
+    parser.add_argument(
+        "--ddim_eta",
+        type=float,
+        default=0.0,
+        help="ddim eta (eta=0.0 corresponds to deterministic sampling",
     )
     parser.add_argument(
         "--n_iter",
@@ -165,16 +179,25 @@ def main():
     parser.add_argument(
         "--personalized_ckpt",
         type=str,
-        required=True,
-        help="Path to a pre-trained personalized checkpoint"
+        help="Paths to a pre-trained personalized checkpoint. With the form 'ckpt1,ckpt2,...'"
     )
     parser.add_argument(
         "--global_locking",
         action="store_true",
         help="the superclass word for global locking. None for disable."
     )
+    parser.add_argument(
+        "--advanced_sampler",
+        action="store_true",
+        help="use other advanced sampler through the sampler and denoiser configs."
+    )
 
     opt = parser.parse_args()
+
+    assert torch.cuda.is_available()
+    device = "cuda"
+    batch_size = opt.n_samples
+    shape = [opt.C, opt.H // opt.f, opt.W // opt.f]
 
     if opt.laion400m:
         print("Falling back to LAION 400M model...")
@@ -185,25 +208,53 @@ def main():
     seed_everything(opt.seed)
 
     config = OmegaConf.load(f"{opt.config}")
+    personalized_ckpts = opt.personalized_ckpt.split(',')
+    n_concepts = len(personalized_ckpts)
+    if n_concepts > 1:
+        config.model.target = 'perfusion.perfusion.MultiConceptsPerfusion'
+        config.model.params.n_concepts = n_concepts
+    else:
+        personalized_ckpts = personalized_ckpts[0]
     config.model.params.beta = opt.beta
     config.model.params.tau = opt.tau
-    model = load_model_from_config(config, opt.ckpt, opt.personalized_ckpt)
-
-    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+    model = load_model_from_config(config, opt.ckpt, personalized_ckpts)
     model = model.to(device)
 
-    sampler_config = OmegaConf.load(f"{opt.sampler_config}")
-    sampler_config.params.num_steps = opt.steps
-    sampler_config.params.guider_config.scale = opt.scale
-    sampler = instantiate_from_config(sampler_config)
+    if opt.advanced_sampler:
+        sampler_config = OmegaConf.load(f"{opt.sampler_config}")
+        sampler_config.params.num_steps = opt.steps
+        sampler_config.params.guider_config.scale = opt.scale
+        sampler = instantiate_from_config(sampler_config)
 
-    denoiser_config = OmegaConf.load(f"{opt.denoiser_config}")
-    denoiser = instantiate_from_config(denoiser_config).to(device)
+        denoiser_config = OmegaConf.load(f"{opt.denoiser_config}")
+        denoiser = instantiate_from_config(denoiser_config).to(device)
+
+        sample = lambda c, uc: (
+            advanced_sample(model.apply_model, denoiser, sampler, c, uc, batch_size, shape, device)
+        )
+
+    else:
+        if opt.plms:
+            sampler = PLMSSampler(model)
+        else:
+            sampler = DDIMSampler(model)
+
+        sample = lambda c, uc: (
+            sampler.sample(
+                S=opt.steps,
+                conditioning=c,
+                batch_size=batch_size,
+                shape=shape,
+                verbose=False,
+                unconditional_guidance_scale=opt.scale,
+                unconditional_conditioning=uc,
+                eta=opt.ddim_eta,
+            )[0]
+        )
 
     os.makedirs(opt.outdir, exist_ok=True)
     outpath = opt.outdir
 
-    batch_size = opt.n_samples
     n_rows = opt.n_rows if opt.n_rows > 0 else batch_size
     if not opt.from_file:
         prompt = opt.prompt
@@ -216,12 +267,22 @@ def main():
             data = f.read().splitlines()
             data = list(chunk(data, batch_size))
 
-    # prompts with superclass word for global locking
-    c_superclass_list = None
-    if opt.global_locking:
-        superclass = model.embedding_manager.initializer_words[0]
-        data_superclass = [[p.format(superclass) for p in data[i]] for i in range(len(data))]
-        c_superclass_list = [model.get_learned_conditioning(batch_superclass) for batch_superclass in data_superclass]
+    # prompts with placeholder word
+    placeholders = list(model.embedding_manager.string_to_token_dict.keys())
+    superclasses = model.embedding_manager.initializer_words
+    data_concept = list()
+    data_superclass = list()
+    for i in range(len(data)):
+        data_concept.append(list())
+        data_superclass.append(list())
+        for j in range(len(data[i])):
+            prompt_concept, prompt_superclass = data[i][j], data[i][j]
+            for concept_i in range(n_concepts):
+                target = f'{{{concept_i + 1}}}' if n_concepts > 1 else '{}'
+                prompt_concept = prompt_concept.replace(target, placeholders[concept_i])
+                prompt_superclass = prompt_superclass.replace(target, superclasses[concept_i])
+            data_concept[i].append(prompt_concept)
+            data_superclass[i].append(prompt_superclass)
 
     sample_path = os.path.join(outpath, "samples")
     os.makedirs(sample_path, exist_ok=True)
@@ -232,29 +293,29 @@ def main():
     if opt.fixed_code:
         start_code = torch.randn([opt.n_samples, opt.C, opt.H // opt.f, opt.W // opt.f], device=device)
 
-    placeholder = list(model.embedding_manager.string_to_token_dict.keys())[0]
     precision_scope = autocast if opt.precision == "autocast" else nullcontext
     with torch.no_grad():
-        with precision_scope("cuda"):
+        with precision_scope(device):
             with model.ema_scope():
                 tic = time.time()
                 all_samples = list()
                 for n in trange(opt.n_iter, desc="Sampling"):
-                    for data_i, prompts in tqdm(enumerate(data), desc="data"):
+                    for data_i in tqdm(range(len(data_concept)), desc="data"):
+                        prompts = data_concept[data_i]
+                        prompts_superclass = data_superclass[data_i] if opt.global_locking else None
+
                         uc = None
-                        c_superclass = c_superclass_list[data_i] if c_superclass_list is not None else None
                         if opt.scale != 1.0:
                             encoding_uc = model.get_learned_conditioning(batch_size * [""])
                             uc = dict(c_crossattn=encoding_uc,
-                                      c_super=encoding_uc if c_superclass is not None else None)
+                                      c_super=encoding_uc if opt.global_locking else None)
                         if isinstance(prompts, tuple):
                             prompts = list(prompts)
-                        prompts = [p.format(placeholder) for p in prompts]
                         encoding = model.cond_stage_model.encode(prompts, embedding_manager=model.embedding_manager)
-                        c = dict(c_crossattn=encoding, c_super=c_superclass)
-                        shape = [opt.C, opt.H // opt.f, opt.W // opt.f]
+                        encoding_superclass = model.get_learned_conditioning(prompts_superclass) if opt.global_locking else None
+                        c = dict(c_crossattn=encoding, c_super=encoding_superclass)
 
-                        z_samples = sample(model.apply_model, denoiser, sampler, c, uc, batch_size, shape, model.device)
+                        z_samples = sample(c, uc)
                         x_samples = model.decode_first_stage(z_samples)
                         x_samples = torch.clamp((x_samples + 1.0) / 2.0, min=0.0, max=1.0)
 
