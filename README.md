@@ -118,7 +118,7 @@ Set `--config configs/perfusion_inference_sd_v2.yaml` and `--ckpt ./ckpt/v2-1_51
 
 ### Multiple Concepts Generating
 When generating with multiple concepts, use commas to separate checkpoints like  `--personalized_ckpt /path/to/personalized/ckpt1,/path/to/personalized/ckpt2`, 
-and use `{1}` and `{2}` to distinguish different concepts in the prompt as `--prompt "photo of a {1} and {2}"`.
+and use `{1}`,`{2}`, ..., `{n}` to distinguish different concepts in the prompt as `--prompt "photo of a {1} and {2}"`.
 
 ### Advanced Sampler
 If you want to use advanced samplers other than DDIM, use the label `--advanced_sampler`.
