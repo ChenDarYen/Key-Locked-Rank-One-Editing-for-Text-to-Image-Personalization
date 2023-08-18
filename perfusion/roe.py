@@ -35,8 +35,8 @@ class ROELinear(nn.Linear):
             input: the encoding of prompt using the concept word. shape: B x N x D
             target_input: the target input.
             C_inv: the inverse of the uncentered covariance metric.
-            beta: bias used in gated rank-1 update.
-            tau: temperature used in gated rank-1 update.
+            beta: bias used in gated rank-1 editing.
+            tau: temperature used in gated rank-1 editing.
             input_super: the encoding of prompt using the superclass word.
         """
         # global locking
@@ -80,8 +80,8 @@ class MultiConceptsROELinear(nn.Linear):
             target_inputs: the target inputs.
             target_inputs_basis: a basis of the spce spanned by target_inputs.
             C_inv: the inverse of the uncentered covariance metric.
-            beta: bias used in gated rank-1 update.
-            tau: temperature used in gated rank-1 update.
+            beta: bias used in gated rank-1 editing.
+            tau: temperature used in gated rank-1 editing.
             input_super: the encoding of prompt using the superclass word.
         """
         assert len(target_inputs) == len(self.target_outputs)
@@ -90,13 +90,18 @@ class MultiConceptsROELinear(nn.Linear):
         if input_super is not None:
             input = input_super
 
+        if isinstance(beta, float):
+            beta = [beta] * len(target_inputs)
+        if isinstance(tau, float):
+            tau = [tau] * len(target_inputs)
+
         parallel_term = 0
-        for i, target_input in enumerate(target_inputs):
+        for i, (target_input, target_output) in enumerate(zip(target_inputs, self.target_outputs)):
             tmp = (C_inv @ target_input)
             target_input_energy = (tmp[None, :] @ target_input).squeeze()
             sim = (input @ tmp)[..., None]
-            sigmoid_term = torch.sigmoid((sim / target_input_energy - beta) / tau)
-            parallel_term += sigmoid_term * self.target_outputs[i][None, ...]
+            sigmoid_term = torch.sigmoid((sim / target_input_energy - beta[i]) / tau[i])
+            parallel_term += sigmoid_term * target_output[None, :]
 
         em_proj_term = 0
         for u in target_inputs_basis:

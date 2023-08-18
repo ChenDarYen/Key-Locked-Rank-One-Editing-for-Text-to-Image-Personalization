@@ -124,15 +124,15 @@ def main():
     )
     parser.add_argument(
         "--beta",
-        type=float,
-        default=0.7,
-        help="bias used in gated rank-1 update",
+        type=str,
+        default="0.7",
+        help="bias used in gated rank-1 editing",
     )
     parser.add_argument(
         "--tau",
-        type=float,
-        default=0.15,
-        help="temperature used in gated rank-1 update",
+        type=str,
+        default="0.15",
+        help="temperature used in gated rank-1 editing",
     )
     parser.add_argument(
         "--from-file",
@@ -215,8 +215,11 @@ def main():
         config.model.params.n_concepts = n_concepts
     else:
         personalized_ckpts = personalized_ckpts[0]
-    config.model.params.beta = opt.beta
-    config.model.params.tau = opt.tau
+
+    beta = [float(b) for b in opt.beta.split(',')]
+    tau = [float(t) for t in opt.tau.split(',')]
+    config.model.params.beta = beta if len(beta) > 1 else beta[0]
+    config.model.params.tau = tau if len(tau) > 1 else tau[0]
     model = load_model_from_config(config, opt.ckpt, personalized_ckpts)
     model = model.to(device)
 

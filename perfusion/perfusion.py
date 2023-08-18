@@ -45,8 +45,8 @@ class Perfusion(LatentDiffusion):
         Args:
             C_inv_path: path to the inverse of the uncentered covariance metric.
             ema_p: p for calculating exponential moving average on target input.
-            beta: bias used in gated rank-1 update.
-            tau: temperature used in gated rank-1 update.
+            beta: bias used in gated rank-1 editing.
+            tau: temperature used in gated rank-1 editing.
         """
         ckpt_path = kwargs.pop('ckpt_path', None)
         ignore_keys = kwargs.pop('ignore_keys', list())
@@ -281,16 +281,21 @@ class MultiConceptsPerfusion(LatentDiffusion):
         Args:
             C_inv_path: path to the inverse of the uncentered covariance metric.
             ema_p: p for calculating exponential moving average on target input.
-            beta: bias used in gated rank-1 update.
-            tau: temperature used in gated rank-1 update.
+            beta: bias used in gated rank-1 editing.
+            tau: temperature used in gated rank-1 editing.
         """
         ckpt_path = kwargs.pop('ckpt_path', None)
         ignore_keys = kwargs.pop('ignore_keys', list())
         load_only_unet = kwargs.pop('load_only_unet', False)
         super().__init__(*args, **kwargs)
-        self.beta = torch.tensor(beta)
-        self.tau = torch.tensor(tau)
         self.n_concepts = n_concepts
+
+        if isinstance(beta, float):
+            beta = [beta] * self.n_concepts
+        if isinstance(tau, float):
+            tau = [tau] * self.n_concepts
+        self.beta = beta
+        self.tau = tau
 
         for name, mod in self.model.diffusion_model.named_modules():
             if isinstance(mod, ROELinear):
