@@ -9,7 +9,7 @@ from pytorch_lightning.utilities.rank_zero import rank_zero_only
 from ldm.models.diffusion.ddpm import LatentDiffusion
 from ldm.util import log_txt_as_img, instantiate_from_config, default
 from perfusion.roe import ROELinear, roe_to_mc_roe
-from perfusion.embedding_manager import get_clip_token_for_string
+from perfusion.dataset import PROMPT_TEMPLATE
 
 
 def roe_state_dict(model: torch.nn.Module):
@@ -100,7 +100,8 @@ class Perfusion(LatentDiffusion):
             prompts_superclass = [' '.join(s) for s in prompts_splits]
             input_superclass = self.get_learned_conditioning(prompts_superclass)
 
-            concept_encoding = input_superclass[torch.arange(len(input_superclass)), concept_indices].mean(dim=0)
+            concept_encoding = (
+                input_superclass[torch.arange(len(input_superclass)), [c_i + 1 for c_i in concept_indices]].mean(dim=0))
             self.target_input.data = concept_encoding
 
             for _, mod in self.model.diffusion_model.named_modules():
@@ -129,7 +130,7 @@ class Perfusion(LatentDiffusion):
         c['c_crossattn'] = encoding
 
         if self.training:
-            concept_encoding = encoding[torch.arange(len(encoding)), c['concept_token_idx']].mean(dim=0)
+            concept_encoding = encoding[torch.arange(len(encoding)), c['concept_token_idx'] + 1].mean(dim=0)
             self.target_input.data = self.target_input.data * self.ema_p + concept_encoding * (1 - self.ema_p)
         del c['concept_token_idx']
 
