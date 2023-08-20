@@ -226,7 +226,7 @@ def main():
     if opt.advanced_sampler:
         sampler_config = OmegaConf.load(f"{opt.sampler_config}")
         sampler_config.params.num_steps = opt.steps
-        sampler_config.params.guider_config.scale = opt.scale
+        sampler_config.params.guider_config.params.scale = opt.scale
         sampler = instantiate_from_config(sampler_config)
 
         denoiser_config = OmegaConf.load(f"{opt.denoiser_config}")
